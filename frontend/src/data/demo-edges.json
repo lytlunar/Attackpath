@@ -1,12 +1,99 @@
 [
-  { "id": "e1", "source": "USR_03", "target": "WST_02", "type": "lateral_movement", "isCritical": true },
-  { "id": "e2", "source": "WST_02", "target": "SVC_01", "type": "credential_abuse", "isCritical": true, "canBeDisrupted": true },
-  { "id": "e3", "source": "SVC_01", "target": "SRV_01", "type": "privilege_escalation", "isCritical": true },
-  { "id": "e4", "source": "SRV_01", "target": "DC_01", "type": "domain_compromise", "isCritical": true },
-
-  { "id": "e_norm_1", "source": "USR_01", "target": "WST_01", "type": "standard_access", "isCritical": false },
-  { "id": "e_norm_2", "source": "USR_02", "target": "WST_01", "type": "standard_access", "isCritical": false },
-  { "id": "e_norm_3", "source": "WST_01", "target": "SRV_02", "type": "standard_access", "isCritical": false },
-  { "id": "e_norm_4", "source": "WST_03", "target": "DC_01", "type": "admin_access", "isCritical": false },
-  { "id": "e_norm_5", "source": "USR_04", "target": "WST_01", "type": "standard_access", "isCritical": false }
+  {
+    "id": "e1",
+    "source": "USR_03",
+    "target": "WST_02",
+    "type": "critical",
+    "status": "active",
+    "description": "Compromised user accesses vulnerable workstation."
+  },
+  {
+    "id": "e2",
+    "source": "WST_02",
+    "target": "SVC_01",
+    "type": "critical",
+    "status": "active",
+    "description": "Exposed credentials on WST_02 allow access to SVC_01."
+  },
+  {
+    "id": "e3",
+    "source": "SVC_01",
+    "target": "SRV_01",
+    "type": "critical",
+    "status": "active",
+    "description": "Exploited service account enables lateral movement to SRV_01."
+  },
+  {
+    "id": "e4",
+    "source": "SRV_01",
+    "target": "DC_01",
+    "type": "critical",
+    "status": "active",
+    "description": "Compromised server creates a path toward the domain controller."
+  },
+  {
+    "id": "e5",
+    "source": "SRV_01",
+    "target": "DB_01",
+    "type": "risk",
+    "status": "at_risk",
+    "description": "SRV_01 has access to sensitive backup database."
+  },
+  {
+    "id": "e6",
+    "source": "USR_01",
+    "target": "WST_01",
+    "type": "normal",
+    "status": "secure",
+    "description": "Normal user workstation session."
+  },
+  {
+    "id": "e7",
+    "source": "USR_02",
+    "target": "WST_01",
+    "type": "normal",
+    "status": "secure",
+    "description": "Normal user workstation session."
+  },
+  {
+    "id": "e8",
+    "source": "USR_04",
+    "target": "WST_03",
+    "type": "normal",
+    "status": "secure",
+    "description": "Secure admin workstation session."
+  },
+  {
+    "id": "e9",
+    "source": "WST_03",
+    "target": "SRV_02",
+    "type": "normal",
+    "status": "secure",
+    "description": "Admin workstation has controlled access to secure server."
+  },
+  {
+    "id": "e10",
+    "source": "SVC_02",
+    "target": "SRV_02",
+    "type": "normal",
+    "status": "secure",
+    "description": "Monitoring service account accesses secure web server."
+  },
+  {
+    "id": "e11",
+    "source": "SIEM_01",
+    "target": "WST_02",
+    "type": "monitoring",
+    "status": "detected",
+    "description": "SOCSimulator-style monitoring detects suspicious activity on WST_02."
+  },
+  {
+    "id": "e12",
+    "source": "SIEM_01",
+    "target": "SRV_01",
+    "type": "monitoring",
+    "status": "detected",
+    "description": "Monitoring source correlates lateral movement activity involving SRV_01."
+  }
 ]
+

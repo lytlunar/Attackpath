@@ -1,0 +1,17 @@
+[
+  { "id": "USR_03", "label": "USR_03 (A.Suleymanova)", "type": "user", "status": "compromised", "criticality": "Medium", "description": "Compromised via phishing initial access. Attack Origin." },
+  { "id": "USR_01", "label": "USR_01 (N.Mammadova)", "type": "user", "status": "secure", "criticality": "Low", "description": "Standard user session. No anomalies detected." },
+  { "id": "USR_02", "label": "USR_02 (K.Talibova)", "type": "user", "status": "secure", "criticality": "Low", "description": "Standard user session. No anomalies detected." },
+   { "id": "USR_04", "label": "USR_04 (A.Zulfigarli)", "type": "user", "status": "secure", "criticality": "Low", "description": "Standard user session. No anomalies detected." },
+  
+  { "id": "WST_02", "label": "WST_02 (Finance-PC)", "type": "workstation", "status": "vulnerable", "criticality": "High", "description": "Vulnerable to CVE-2026-001. Contains exposed service account credentials in memory." },
+  { "id": "WST_01", "label": "WST_01 (HR-Laptop)", "type": "workstation", "status": "secure", "criticality": "Low", "description": "Endpoint protected by EDR. Clean state." },
+  { "id": "WST_03", "label": "WST_03 (IT-Admin-PC)", "type": "workstation", "status": "secure", "criticality": "High", "description": "Isolated admin workstation." },
+
+  { "id": "SVC_01", "label": "SVC_01 (Backup-Service)", "type": "service_account", "status": "exploited", "criticality": "High", "description": "Excessive domain privileges allowed token extraction." },
+  
+  { "id": "SRV_01", "label": "SRV_01 (SQL Server 01)", "type": "server", "status": "at_risk", "criticality": "High", "description": "Internal database server containing sensitive backups." },
+  { "id": "SRV_02", "label": "SRV_02 (Web Server 02)", "type": "server", "status": "secure", "criticality": "Medium", "description": "DMZ Web Server. Patched and monitored." },
+
+  { "id": "DC_01", "label": "DC_01 (Domain Controller)", "type": "domain_controller", "status": "critical_target", "criticality": "Critical", "description": "Primary Domain Controller. Target for Domain Admin privilege escalation." }
+]

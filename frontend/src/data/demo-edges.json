@@ -13,7 +13,9 @@
     "target": "SVC_01",
     "type": "critical",
     "status": "active",
-    "description": "Exposed credentials on WST_02 allow access to SVC_01."
+    "description": "Exposed credentials on WST_02 allow access to SVC_01.",
+    "isChokepoint": true,
+    "disruptedBy": "remediation_bundle_wst_02"
   },
   {
     "id": "e3",

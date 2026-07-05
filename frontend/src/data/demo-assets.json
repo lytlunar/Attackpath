@@ -1,7 +1,7 @@
 [
   {
     "id": "USR_03",
-    "label": "USR_03 (A.Suleymanova)",
+    "label": "USR_03 (Finance Analyst)",
     "type": "user",
     "status": "compromised",
     "criticality": "Medium",
@@ -9,7 +9,7 @@
   },
   {
     "id": "USR_01",
-    "label": "USR_01 (N.Mammadova)",
+    "label": "USR_01 (HR User)",
     "type": "user",
     "status": "secure",
     "criticality": "Low",
@@ -17,7 +17,7 @@
   },
   {
     "id": "USR_02",
-    "label": "USR_02 (K.Talibova)",
+    "label": "USR_02 (Operations User)",
     "type": "user",
     "status": "secure",
     "criticality": "Low",
@@ -25,7 +25,7 @@
   },
   {
     "id": "USR_04",
-    "label": "USR_04 (A.Zulfigarli)",
+    "label": "USR_04 (Legal User)",
     "type": "user",
     "status": "secure",
     "criticality": "Low",
@@ -38,7 +38,7 @@
     "type": "workstation",
     "status": "vulnerable",
     "criticality": "High",
-    "description": "Vulnerable to CVE-DEMO-001. Contains exposed service account credentials in memory and creates a path to SVC_01."
+    "description": "Vulnerable to simulated local privilege escalation finding LPE-DEMO-001. Contains exposed service account credentials in memory and creates a path to SVC_01."
   },
   {
     "id": "WST_01",

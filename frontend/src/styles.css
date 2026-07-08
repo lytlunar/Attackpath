@@ -1,0 +1,134 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-bg: #070B1D;
+  --color-panel: #0E1226;
+  --color-panel-2: #10152B;
+  --color-border-app: #232A46;
+  --color-text: #F4F1FA;
+  --color-muted: #A7A9B8;
+  --color-teal: #9475F7;
+  --color-green: #32B86A;
+  --color-danger: #D93A46;
+  --color-orange: #E0A44B;
+  --color-blue: #7ea7ff;
+  --color-gold: #D9B65A;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-background: #070B1D;
+  --color-foreground: #F4F1FA;
+  --color-card: #0E1226;
+  --color-card-foreground: #F4F1FA;
+  --color-popover: #0E1226;
+  --color-popover-foreground: #F4F1FA;
+  --color-primary: #9475F7;
+  --color-primary-foreground: #070B1D;
+  --color-secondary: #10152B;
+  --color-secondary-foreground: #F4F1FA;
+  --color-muted-bg: #10152B;
+  --color-muted-foreground: #A7A9B8;
+  --color-accent: #252449;
+  --color-accent-foreground: #F4F1FA;
+  --color-destructive: #D93A46;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #232A46;
+  --color-input: #232A46;
+  --color-ring: #9475F7;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border-app);
+  }
+  html, body {
+    background-color: #070B1D;
+    color: #F4F1FA;
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Animations */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217,58,70,0.45), 0 0 20px 3px rgba(217,58,70,0.28); }
+  50% { box-shadow: 0 0 0 8px rgba(217,58,70,0), 0 0 32px 8px rgba(217,58,70,0.45); }
+}
+.pulse-glow-red { animation: pulse-glow 1.8s ease-in-out infinite; }
+
+@keyframes pulse-gold {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(217,182,90,0.45)); }
+  50% { filter: drop-shadow(0 0 10px rgba(217,182,90,0.75)); }
+}
+.pulse-gold { animation: pulse-gold 2.2s ease-in-out infinite; }
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.25); }
+}
+.live-dot { animation: live-pulse 1.4s ease-in-out infinite; }
+
+@keyframes flow {
+  0% { background-position: 0 0; }
+  100% { background-position: 24px 0; }
+}
+.edge-flow {
+  background-image: linear-gradient(90deg, #D93A46 0 50%, transparent 50% 100%);
+  background-size: 12px 2px;
+  background-repeat: repeat-x;
+  animation: flow 0.6s linear infinite;
+}
+.edge-flow-fast {
+  background-image: linear-gradient(90deg, #D93A46 0 50%, transparent 50% 100%);
+  background-size: 12px 2px;
+  background-repeat: repeat-x;
+  animation: flow 0.3s linear infinite;
+}
+.edge-severed {
+  background-image: linear-gradient(90deg, #D93A46 0 50%, transparent 50% 100%);
+  background-size: 8px 2px;
+  background-repeat: repeat-x;
+  opacity: 0.3;
+}
+
+@keyframes packet {
+  0% { left: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+.packet { animation: packet 1.6s linear infinite; }
+.packet-fast { animation: packet 0.9s linear infinite; }
+
+@keyframes ring-pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.ring-pulse::before, .ring-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid #D93A46;
+  animation: ring-pulse 1.8s ease-out infinite;
+}
+.ring-pulse::after { animation-delay: 0.9s; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 0.5s ease-out both; }
+
+.brand-grad {
+  color: #9475F7;
+}

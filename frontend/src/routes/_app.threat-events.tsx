@@ -37,7 +37,7 @@ const EVENTS: Row[] = AegisPathModel.threatEvents.map(evt => {
           evt.id === "evt_003" ? "Lateral Movement" : "Domain Escalation",
     source: evt.source,
     target: evt.node,
-    ts: evt.timestamp.replace("T", " ").replace("Z", " UTC"),
+    ts: `Jul 5, 2026 ${evt.timestamp.substring(11, 16)} UTC`,
     status: "Investigating",
     detail: evt.message,
     mitreId: `${mitreMapping.technique} — ${mitreMapping.name}`

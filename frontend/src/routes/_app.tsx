@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_app")({
 
 const NAV = [
   { to: "/overview", label: "Overview", icon: LayoutGrid, title: "Attack Path Overview", subtitle: "Live view of active exposure across your identity, endpoint, and directory tier." },
-  { to: "/threat-events", label: "Threat Events", icon: Shield, title: "Threat Events", subtitle: "Real-time feed of detections and adversary behavior across the fleet." },
+  { to: "/threat-events", label: "Threat Events", icon: Shield, title: "Threat Events", subtitle: "Attack-path detections enriched with SOC telemetry and MITRE ATT&CK context." },
   { to: "/attack-graph", label: "Attack Graph", icon: Share2, title: "Attack Graph", subtitle: "Interactive graph of the active attack path and lateral movement." },
   { to: "/risk-simulation", label: "Risk Simulation", icon: CircleAlert, title: "Risk Simulation", subtitle: "Model remediation actions and see impact on risk in real time." },
   { to: "/intelligence-brief", label: "Intelligence Brief", icon: FileText, title: "Intelligence Brief", subtitle: "Analyst-authored report on the current campaign and threat actor." },

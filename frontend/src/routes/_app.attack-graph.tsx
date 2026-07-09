@@ -32,20 +32,27 @@ function getNodeColor(id: string, role: string) {
 function AttackGraphPage() {
   const { remediationApplied } = useAegisPath();
   const [selectedId, setSelectedId] = useState<string>("WST_02");
+  const [previewDisruption, setPreviewDisruption] = useState(false);
+
+  const visualRemediationApplied = remediationApplied || previewDisruption;
 
   const sel = AegisPathModel.graphNodes.find(n => n.id === selectedId);
-  const isMuted = remediationApplied && AegisPathModel.criticalPath.includes(selectedId) && ["SVC_01", "SRV_01", "DC_01"].includes(selectedId);
+  const isMuted = visualRemediationApplied && AegisPathModel.criticalPath.includes(selectedId) && ["SVC_01", "SRV_01", "DC_01"].includes(selectedId);
 
   return (
     <div className="space-y-4">
       {/* Status banner */}
       <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-[12.5px] font-semibold transition-all duration-500 ${
-        remediationApplied
+        visualRemediationApplied
           ? "border-green/40 bg-green/8 text-green"
           : "border-danger/40 bg-danger/8 text-danger"
       }`}>
-        {remediationApplied ? (
-          <><ShieldCheck className="h-4 w-4" /> WST_02 → SVC_01 edge severed · Downstream nodes isolated · Path: Disrupted</>
+        {visualRemediationApplied ? (
+          previewDisruption && !remediationApplied ? (
+            <><ShieldCheck className="h-4 w-4" /> Preview: fixing WST_02 disrupts the downstream attack path</>
+          ) : (
+            <><ShieldCheck className="h-4 w-4" /> WST_02 → SVC_01 edge severed · Downstream nodes isolated · Path: Disrupted</>
+          )
         ) : (
           <><span className="h-2 w-2 rounded-full bg-danger live-dot flex-shrink-0" /> Active attack path · Chokepoint: WST_02 — click to inspect</>
         )}
@@ -60,17 +67,18 @@ function AttackGraphPage() {
               <h2 className="text-[16px] font-bold text-text">Attack Path Topology</h2>
             </div>
             <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${
-              remediationApplied
+              visualRemediationApplied
                 ? "border-green/40 bg-green/10 text-green"
                 : "border-danger/40 bg-danger/10 text-danger"
             }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${remediationApplied ? "bg-green" : "bg-danger live-dot"}`} />
-              {remediationApplied ? "PATH DISRUPTED" : "KEY NODE: WST_02"}
+              <span className={`h-1.5 w-1.5 rounded-full ${visualRemediationApplied ? "bg-green" : "bg-danger live-dot"}`} />
+              {visualRemediationApplied ? "PATH DISRUPTED" : "KEY NODE: WST_02"}
             </div>
           </div>
 
-          <div className="relative rounded-lg border border-border-app bg-bg/60 p-4" style={{ height: 460 }}>
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 820 420">
+          <div className="overflow-x-auto rounded-lg border border-border-app bg-bg/60 p-4">
+            <div className="relative mx-auto min-w-[1000px]" style={{ width: 1000, height: 620 }}>
+              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 620">
               <defs>
                 <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                   <path d="M0,0 L10,5 L0,10 z" fill="#ef5b6c" />
@@ -90,8 +98,8 @@ function AttackGraphPage() {
                 if (!A || !B) return null;
 
                 const isChokepoint = edge.role === "chokepoint";
-                const isSevered = remediationApplied && isChokepoint;
-                const isDownstream = remediationApplied && ["SVC_01", "SRV_01"].includes(edge.source); 
+                const isSevered = visualRemediationApplied && isChokepoint;
+                const isDownstream = visualRemediationApplied && ["SVC_01", "SRV_01"].includes(edge.source); 
                 const isDimmedCritical = isSevered || isDownstream;
                 
                 const isContext = edge.role === "context";
@@ -101,19 +109,38 @@ function AttackGraphPage() {
                 
                 if (isContext) {
                   strokeColor = "#88888833";
-                  markerUrl = "url(#arrow-context)";
+                  markerUrl = "none"; // No arrowheads on context edges to prevent detached floating arrows
                 } else if (isDimmedCritical) {
-                  strokeColor = "#D93A4440";
+                  strokeColor = "#D93A4660";
                   markerUrl = "url(#arrow-severed)";
                 }
+
+                // Calculate exact start/end coordinates at node boundaries
+                const dx = B.x - A.x;
+                const dy = B.y - A.y;
+                const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+                
+                const isContextNodeA = A.role === "context";
+                const isContextNodeB = B.role === "context";
+                const radiusA = isContextNodeA ? 24 : 32;
+                const radiusB = isContextNodeB ? 24 : 32;
+                
+                const startX = A.x + (dx / distance) * radiusA;
+                const startY = A.y + (dy / distance) * radiusA;
+                
+                // If context edge, no arrowheads, so it can touch border.
+                // If critical edge, leave padding for the arrowhead marker.
+                const paddingEnd = isContext ? 0 : 6;
+                const endX = B.x - (dx / distance) * (radiusB + paddingEnd);
+                const endY = B.y - (dy / distance) * (radiusB + paddingEnd);
 
                 return (
                   <g key={i}>
                     <line
-                      x1={A.x} y1={A.y} x2={B.x} y2={B.y}
+                      x1={startX} y1={startY} x2={endX} y2={endY}
                       stroke={strokeColor}
-                      strokeWidth={isSevered ? 2 : (isContext ? 1.5 : 2)}
-                      strokeDasharray={isSevered ? "4 6" : "6 4"}
+                      strokeWidth={isSevered ? 2.5 : (isContext ? 1.5 : 2)}
+                      strokeDasharray={isSevered ? "6 6" : "6 4"}
                       markerEnd={markerUrl}
                     >
                       {!isDimmedCritical && !isContext && (
@@ -126,14 +153,16 @@ function AttackGraphPage() {
                       )}
                     </line>
                     {isSevered && (
-                      <text
-                        x={(A.x + B.x) / 2}
-                        y={(A.y + B.y) / 2 - 8}
-                        textAnchor="middle"
-                        fontSize="12"
-                        fontWeight="bold"
-                        fill="#D93A4680"
-                      >✕</text>
+                      <g transform={`translate(${(A.x + B.x) / 2}, ${(A.y + B.y) / 2})`}>
+                        <circle r="11" fill="#0f111a" stroke="#ef5b6c" strokeWidth="1.5" />
+                        <text
+                          y="4"
+                          textAnchor="middle"
+                          fontSize="13"
+                          fontWeight="bold"
+                          fill="#ef5b6c"
+                        >✕</text>
+                      </g>
                     )}
                   </g>
                 );
@@ -141,46 +170,47 @@ function AttackGraphPage() {
             </svg>
 
             {AegisPathModel.graphNodes.map((n) => {
-              const nodeIsMutedCritical = remediationApplied && ["SVC_01", "SRV_01", "DC_01"].includes(n.id);
+              const nodeIsMutedCritical = visualRemediationApplied && ["SVC_01", "SRV_01", "DC_01"].includes(n.id);
               const isContext = n.role === "context";
               const isCritical = n.role === "critical";
               const isChokepointNode = n.id === "WST_02";
-              const offset = isContext ? 20 : 28;
+              const offset = isContext ? 24 : 32;
 
               return (
                 <button
                   key={n.id}
                   onClick={() => setSelectedId(n.id)}
                   className={`absolute flex flex-col items-center transition-all duration-500 hover:scale-110 
-                    ${nodeIsMutedCritical ? "opacity-25 grayscale" : ""}
-                    ${isContext ? "opacity-50 hover:opacity-100" : ""}
+                    ${nodeIsMutedCritical ? "opacity-40 grayscale" : ""}
+                    ${isContext ? "opacity-60 hover:opacity-100" : ""}
                   `}
                   style={{ left: n.x - offset, top: n.y - offset, zIndex: isCritical ? 10 : 1 }}
                 >
-                  {n.id === "DC_01" && <Crown className="pulse-gold absolute -top-4 h-4 w-4 text-gold" />}
+                  {n.id === "DC_01" && <Crown className="pulse-gold absolute -top-5 h-5 w-5 text-gold" />}
                   
-                  {isChokepointNode && !remediationApplied && (
-                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-danger px-1.5 py-0.5 text-[8px] font-black tracking-wider text-white shadow shadow-danger/50">
+                  {isChokepointNode && !visualRemediationApplied && (
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-danger px-1.5 py-0.5 text-[9px] font-black tracking-wider text-white shadow shadow-danger/50">
                       CHOKEPOINT
                     </div>
                   )}
 
                   <div className={`relative flex items-center justify-center rounded-full border ${getNodeColor(n.id, n.role)} 
-                    ${isChokepointNode && !remediationApplied ? "pulse-glow-red" : ""} 
+                    ${isChokepointNode && !visualRemediationApplied ? "pulse-glow-red" : ""} 
                     ${selectedId === n.id ? "ring-2 ring-teal ring-offset-2 ring-offset-bg" : ""}
-                    ${isContext ? "h-10 w-10 text-muted" : "h-14 w-14"}
+                    ${isContext ? "h-12 w-12 text-muted" : "h-16 w-16"}
                   `}>
-                    <div className={isContext ? "scale-75" : ""}>
+                    <div className={isContext ? "scale-90" : "scale-110"}>
                       {iconMap[n.iconType] || <Monitor className="h-5 w-5" />}
                     </div>
                   </div>
                   
-                  <div className={`mt-1 font-mono font-bold ${isContext ? "text-[9px] text-muted" : "text-[11px] text-text"}`}>
+                  <div className={`mt-1.5 font-mono font-bold ${isContext ? "text-[10px] text-muted" : "text-[12px] text-text"}`}>
                     {n.label}
                   </div>
                 </button>
               );
             })}
+            </div>
           </div>
 
           {/* Legend */}
@@ -213,9 +243,29 @@ function AttackGraphPage() {
               </p>
 
               {sel.id === "WST_02" && !remediationApplied && (
-                <div className="mt-4 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-[11.5px] font-semibold text-danger">
-                  This node is the chokepoint. Remediating here breaks the primary attack path.
-                </div>
+                <>
+                  <div className="mt-4 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-[11.5px] font-semibold text-danger">
+                    This node is the chokepoint. Remediating here breaks the primary attack path.
+                  </div>
+                  
+                  {/* Simulate Remediation CTA */}
+                  <div className="mt-6 rounded-lg border border-border-app bg-panel-2 p-4 text-center">
+                    <button 
+                      onClick={() => setPreviewDisruption(!previewDisruption)}
+                      className="w-full flex items-center justify-center gap-2 rounded border border-danger/50 bg-danger/20 px-4 py-2.5 text-[12px] font-bold text-danger transition-colors hover:bg-danger/30"
+                    >
+                      {previewDisruption ? "Reset Preview" : "Preview Path Disruption"}
+                    </button>
+                    <div className="mt-2.5 text-[10.5px] leading-relaxed text-muted">
+                      {previewDisruption 
+                        ? "Preview active: the chokepoint edge is severed and downstream nodes are muted." 
+                        : "Visually preview how fixing WST_02 breaks the active attack path."}
+                      <div className="mt-1 font-semibold tracking-wider text-danger/80">
+                        {previewDisruption ? "PREVIEW MODE ACTIVE" : "VISUAL PREVIEW ONLY"}
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               {sel.id === "WST_02" && remediationApplied && (

@@ -71,94 +71,103 @@ export const AegisPathModel = {
   chokepointEdge: { source: "WST_02", target: "SVC_01" },
 
   graphNodes: [
-    // CRITICAL PATH
-    {
-      id: "USR_03", label: "USR_03", type: "User Identity", status: "compromised",
-      description: "Compromised via phishing initial access. This user account is the attack origin.",
-      role: "critical", x: 80, y: 220, iconType: "User"
-    },
-    {
-      id: "WST_02", label: "WST_02", type: "Workstation", status: "vulnerable",
-      description: "Primary chokepoint. Unpatched CVE-2024-XXXX allows local privilege escalation. LSASS dump observed. Remediating here severs the entire downstream attack path.",
-      role: "critical", x: 240, y: 220, iconType: "Monitor"
-    },
-    {
-      id: "SVC_01", label: "SVC_01", type: "Service Account", status: "exploited",
-      description: "High-privilege service account (SPN present). Kerberoastable. Credentials cached in LSASS on WST_02.",
-      role: "critical", x: 400, y: 220, iconType: "Cog"
-    },
-    {
-      id: "SRV_01", label: "SRV_01", type: "Application Server", status: "at_risk",
-      description: "Application server used as lateral movement pivot. SMB admin share exposure. Contains cached domain admin credentials.",
-      role: "critical", x: 560, y: 220, iconType: "Server"
-    },
+    // Level 0 - Target
     {
       id: "DC_01", label: "DC_01", type: "Domain Controller", status: "critical_target",
       description: "Crown jewel. Full domain compromise if reached. Protect via tiered admin model. Target of Golden Ticket and DCSync attacks.",
-      role: "critical", x: 740, y: 220, iconType: "Building2"
+      role: "critical", x: 520, y: 70, iconType: "Building2"
     },
-    // CONTEXT NODES
+    
+    // Level 1 - Servers / Data assets
     {
-      id: "USR_01", label: "USR_01", type: "User Identity", status: "secure",
-      description: "Standard user session. No anomalies detected.",
-      role: "context", x: 80, y: 80, iconType: "User"
-    },
-    {
-      id: "USR_02", label: "USR_02", type: "User Identity", status: "secure",
-      description: "Standard user session. No anomalies detected.",
-      role: "context", x: 80, y: 150, iconType: "User"
-    },
-    {
-      id: "USR_04", label: "USR_04", type: "User Identity", status: "secure",
-      description: "Standard user session. No anomalies detected.",
-      role: "context", x: 80, y: 320, iconType: "User"
-    },
-    {
-      id: "WST_01", label: "WST_01", type: "Workstation", status: "secure",
-      description: "Endpoint protected by EDR. Clean state.",
-      role: "context", x: 240, y: 115, iconType: "Monitor"
-    },
-    {
-      id: "WST_03", label: "WST_03", type: "Workstation", status: "secure",
-      description: "Isolated admin workstation with restricted access. No suspicious activity detected.",
-      role: "context", x: 240, y: 320, iconType: "Monitor"
-    },
-    {
-      id: "SVC_02", label: "SVC_02", type: "Service Account", status: "secure",
-      description: "Service account used for monitoring and reporting tasks. No suspicious privilege abuse detected.",
-      role: "context", x: 400, y: 320, iconType: "Cog"
+      id: "SRV_01", label: "SRV_01", type: "Application Server", status: "at_risk",
+      description: "Application server used as lateral movement pivot. SMB admin share exposure. Contains cached domain admin credentials.",
+      role: "critical", x: 520, y: 185, iconType: "Server"
     },
     {
       id: "SRV_02", label: "SRV_02", type: "Application Server", status: "secure",
       description: "DMZ web server. Patched, monitored, and not part of the active attack path.",
-      role: "context", x: 560, y: 320, iconType: "Server"
+      role: "context", x: 320, y: 185, iconType: "Server"
     },
     {
       id: "DB_01", label: "DB_01", type: "Database", status: "at_risk",
       description: "Database containing sensitive backup records. At risk because SRV_01 is reachable through the active attack path.",
-      role: "context", x: 740, y: 320, iconType: "Database"
+      role: "context", x: 720, y: 185, iconType: "Database"
+    },
+
+    // Level 2 - Services / Monitoring
+    {
+      id: "SVC_01", label: "SVC_01", type: "Service Account", status: "exploited",
+      description: "High-privilege service account (SPN present). Kerberoastable. Credentials cached in LSASS on WST_02.",
+      role: "critical", x: 500, y: 315, iconType: "Cog"
     },
     {
       id: "SIEM_01", label: "SIEM_01", type: "Security Tool", status: "monitoring",
       description: "SOCSimulator-inspired monitoring source used to generate demo SOC logs, MITRE-mapped events, and curated attack path signals.",
-      role: "context", x: 400, y: 100, iconType: "Radar"
+      role: "context", x: 280, y: 315, iconType: "Radar"
+    },
+    {
+      id: "SVC_02", label: "SVC_02", type: "Service Account", status: "secure",
+      description: "Service account used for monitoring and reporting tasks. No suspicious privilege abuse detected.",
+      role: "context", x: 720, y: 315, iconType: "Cog"
+    },
+
+    // Level 3 - Workstations
+    {
+      id: "WST_02", label: "WST_02", type: "Workstation", status: "vulnerable",
+      description: "Primary chokepoint. Unpatched CVE-2024-XXXX allows local privilege escalation. LSASS dump observed. Remediating here severs the entire downstream attack path.",
+      role: "critical", x: 520, y: 440, iconType: "Monitor"
+    },
+    {
+      id: "WST_01", label: "WST_01", type: "Workstation", status: "secure",
+      description: "Endpoint protected by EDR. Clean state.",
+      role: "context", x: 320, y: 440, iconType: "Monitor"
+    },
+    {
+      id: "WST_03", label: "WST_03", type: "Workstation", status: "secure",
+      description: "Isolated admin workstation with restricted access. No suspicious activity detected.",
+      role: "context", x: 720, y: 440, iconType: "Monitor"
+    },
+
+    // Level 4 - Users / Endpoints
+    {
+      id: "USR_03", label: "USR_03", type: "User Identity", status: "compromised",
+      description: "Compromised via phishing initial access. This user account is the attack origin.",
+      role: "critical", x: 560, y: 555, iconType: "User"
+    },
+    {
+      id: "USR_01", label: "USR_01", type: "User Identity", status: "secure",
+      description: "Standard user session. No anomalies detected.",
+      role: "context", x: 220, y: 555, iconType: "User"
+    },
+    {
+      id: "USR_02", label: "USR_02", type: "User Identity", status: "secure",
+      description: "Standard user session. No anomalies detected.",
+      role: "context", x: 370, y: 555, iconType: "User"
+    },
+    {
+      id: "USR_04", label: "USR_04", type: "User Identity", status: "secure",
+      description: "Standard user session. No anomalies detected.",
+      role: "context", x: 760, y: 555, iconType: "User"
     }
   ],
 
   graphEdges: [
-    // CRITICAL EDGES
+    // CRITICAL EDGES (Upward attack path through layers)
     { id: "e1", source: "USR_03", target: "WST_02", role: "critical", description: "Compromised user accesses vulnerable workstation." },
     { id: "e2", source: "WST_02", target: "SVC_01", role: "chokepoint", description: "Exposed credentials on WST_02 allow access to SVC_01." },
     { id: "e3", source: "SVC_01", target: "SRV_01", role: "critical", description: "Exploited service account enables lateral movement to SRV_01." },
     { id: "e4", source: "SRV_01", target: "DC_01", role: "critical", description: "Compromised server creates a path toward the domain controller." },
-    // CONTEXT EDGES
-    { id: "e5", source: "SRV_01", target: "DB_01", role: "context", description: "SRV_01 has access to sensitive backup database." },
-    { id: "e6", source: "USR_01", target: "WST_01", role: "context", description: "Normal user workstation session." },
-    { id: "e7", source: "USR_02", target: "WST_01", role: "context", description: "Normal user workstation session." },
-    { id: "e8", source: "USR_04", target: "WST_03", role: "context", description: "Secure admin workstation session." },
-    { id: "e9", source: "WST_03", target: "SRV_02", role: "context", description: "Admin workstation has controlled access to secure server." },
-    { id: "e10", source: "SVC_02", target: "SRV_02", role: "context", description: "Monitoring service account accesses secure web server." },
-    { id: "e11", source: "SIEM_01", target: "WST_02", role: "context", description: "SOCSimulator-style monitoring detects suspicious activity on WST_02." },
-    { id: "e12", source: "SIEM_01", target: "SRV_01", role: "context", description: "Monitoring source correlates lateral movement activity involving SRV_01." }
+    
+    // CONTEXT EDGES (Relationships within and between layers)
+    { id: "e5", source: "WST_01", target: "USR_01", role: "context", description: "Normal user workstation session." },
+    { id: "e6", source: "WST_01", target: "USR_02", role: "context", description: "Normal user workstation session." },
+    { id: "e7", source: "WST_03", target: "USR_04", role: "context", description: "Secure admin workstation session." },
+    { id: "e8", source: "WST_02", target: "WST_01", role: "context", description: "Local network interactions between workstations." },
+    { id: "e9", source: "WST_02", target: "WST_03", role: "context", description: "Local network interactions between workstations." },
+    { id: "e10", source: "SVC_01", target: "SIEM_01", role: "context", description: "Security tooling monitors service account behavior." },
+    { id: "e11", source: "SVC_01", target: "SVC_02", role: "context", description: "Service interactions between SVC_01 and SVC_02." },
+    { id: "e12", source: "SVC_01", target: "SRV_02", role: "context", description: "Service account has privileges on web server." },
+    { id: "e13", source: "SRV_01", target: "DB_01", role: "context", description: "SRV_01 has access to sensitive backup database." }
   ]
 };

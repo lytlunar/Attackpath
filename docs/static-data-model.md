@@ -99,35 +99,35 @@ const AegisPathModel = {
   threatEvents: [
     {
       id: "evt_001",
-      timestamp: "2026-07-05T04:12:00Z",
-      source: "Active Directory",
+      timestamp: "2026-07-05T08:58:40Z",
+      source: "Cloud Identity Protection",
       severity: "High",
       node: "USR_03",
-      message: "Multiple failed login attempts followed by successful logon for USR_03 from an unrecognized IP."
+      message: "Anomalous successful cloud authentication was detected for USR_03 from an external infrastructure pattern consistent with Adversary-in-the-Middle session token replay. The sign-in bypassed normal MFA expectations and triggered an identity-risk alert for possible valid account abuse."
     },
     {
       id: "evt_002",
-      timestamp: "2026-07-05T04:15:22Z",
+      timestamp: "2026-07-05T11:00:03Z",
       source: "WST_02 Endpoint Agent",
       severity: "Critical",
       node: "WST_02",
-      message: "Suspicious memory access targeting LSASS.exe detected from an unprivileged process."
+      message: "Suspicious credential access activity was detected on chokepoint workstation WST_02. Endpoint telemetry identified an elevated process invoking comsvcs.dll MiniDump behavior against LSASS memory and writing a dump artifact to a temporary directory."
     },
     {
       id: "evt_003",
-      timestamp: "2026-07-05T04:18:10Z",
-      source: "Network Firewall",
+      timestamp: "2026-07-05T13:29:03Z",
+      source: "SIEM Kerberos Correlation",
       severity: "High",
       node: "SVC_01",
-      message: "Unusual RPC connection from WST_02 to SRV_01 authenticated with service account SVC_01."
+      message: "Unusual Kerberos service ticket activity was observed for service-linked accounts, followed by authenticated SMB/RPC movement toward SRV_01 using compromised service credentials. The lateral movement pattern is consistent with service account abuse after offline ticket cracking."
     },
     {
       id: "evt_004",
-      timestamp: "2026-07-05T04:22:45Z",
+      timestamp: "2026-07-05T14:14:33Z",
       source: "Domain Controller AD Audit",
       severity: "Critical",
       node: "DC_01",
-      message: "Kerberos Ticket-Granting Ticket (TGT) request for a Domain Administrator account originating from SRV_01."
+      message: "Privileged directory replication activity was detected on DC_01 from the downstream attack path through SRV_01. The event indicates possible DCSync behavior through DRSUAPI GetNCChanges and exposure of high-value domain credential material."
     }
   ],
 
@@ -135,9 +135,9 @@ const AegisPathModel = {
   // Keyed by step identifier. Displayed as badges on graph nodes and Threat Events.
   mitreMappings: {
     USR_03: {
-      technique: "T1078",
-      name: "Valid Accounts",
-      description: "Attacker obtains and abuses valid domain user credentials to establish initial access."
+      technique: "T1078.004 / T1539",
+      name: "Valid Accounts: Cloud Accounts / Steal Web Session Information",
+      description: "Attacker replays a stolen cloud session token for USR_03 to bypass normal MFA expectations and establish valid account access."
     },
     WST_02_ingress: {
       technique: "T1021",
@@ -152,17 +152,17 @@ const AegisPathModel = {
     WST_02_dumping: {
       technique: "T1003.001",
       name: "OS Credential Dumping: LSASS Memory",
-      description: "SYSTEM-level access enables extraction of cached service account credentials from LSASS memory."
+      description: "Endpoint telemetry on WST_02 indicates LSASS memory dumping via comsvcs.dll MiniDump behavior, exposing cached credential material."
     },
     SVC_01_abuse: {
-      technique: "T1078 / T1021",
-      name: "Valid Accounts & Remote Services",
-      description: "Compromised SVC_01 credentials used to authenticate into SRV_01 via remote services."
+      technique: "T1558.003 / T1021.002",
+      name: "Kerberoasting / Remote Services: SMB Windows Admin Shares",
+      description: "Kerberos service ticket abuse leads to compromised service credentials being used for SMB/RPC movement toward SRV_01."
     },
     DC_01_escalation: {
-      technique: "T1078 / T1021",
-      name: "Valid Accounts & Remote Services",
-      description: "Cached domain administrator credentials used to pivot from SRV_01 to DC_01."
+      technique: "T1003.006",
+      name: "OS Credential Dumping: DCSync",
+      description: "Privileged directory replication activity on DC_01 indicates DCSync behavior through DRSUAPI GetNCChanges and exposure of high-value domain credential material."
     }
   },
 

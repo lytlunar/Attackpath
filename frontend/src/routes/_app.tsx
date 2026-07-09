@@ -141,7 +141,7 @@ function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
       <div className="flex shrink-0 items-center gap-2">
         <button className="flex items-center gap-2 rounded-md border border-border-app bg-panel px-3 py-1.5 text-[12px] text-text hover:bg-panel-2">
           <Calendar className="h-3.5 w-3.5 text-muted" />
-          May 12 – May 19, 2024
+          Incident Window: Jul 5, 2026
         </button>
         <div className="flex items-center gap-2 rounded-md border border-border-app bg-panel px-3 py-1.5">
           <Search className="h-3.5 w-3.5 text-muted" />

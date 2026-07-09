@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
+import { AegisPathModel } from "../data/aegisPathModel";
 
 export const Route = createFileRoute("/_app/threat-events")({
   component: ThreatEventsPage,
@@ -8,6 +9,7 @@ export const Route = createFileRoute("/_app/threat-events")({
 
 type Severity = "Critical" | "High" | "Medium";
 type Row = {
+  id: string;
   severity: Severity;
   type: string;
   source: string;
@@ -15,20 +17,32 @@ type Row = {
   ts: string;
   status: "Open" | "Investigating" | "Contained";
   detail: string;
+  mitreId: string;
 };
 
-const EVENTS: Row[] = [
-  { severity: "Critical", type: "DCSync Attempt", source: "SRV_01", target: "DC_01", ts: "May 19, 2024 13:35:02", status: "Open", detail: "Replication request from non-DC principal detected via directory replication rights." },
-  { severity: "Critical", type: "Pass-the-Hash", source: "WST_02", target: "SVC_01", ts: "May 19, 2024 13:34:41", status: "Investigating", detail: "NTLM hash reuse observed originating from WST_02 LSASS cache." },
-  { severity: "High", type: "SMB Brute Force", source: "203.0.113.42", target: "WST_02", ts: "May 19, 2024 13:30:18", status: "Contained", detail: "1,204 failed authentications over SMB in 90s window." },
-  { severity: "High", type: "Kerberoasting", source: "USR_03", target: "SVC_01", ts: "May 19, 2024 13:22:07", status: "Open", detail: "SPN enumeration followed by TGS-REQ for RC4-HMAC service tickets." },
-  { severity: "High", type: "LDAP Enumeration", source: "WST_02", target: "DC_01", ts: "May 19, 2024 13:18:44", status: "Open", detail: "Recursive LDAP query enumerating privileged group membership." },
-  { severity: "Medium", type: "Suspicious Login", source: "USR_03", target: "WST_02", ts: "May 19, 2024 12:55:11", status: "Investigating", detail: "Interactive logon from unusual geolocation outside baseline." },
-  { severity: "Medium", type: "Scheduled Task Created", source: "SVC_01", target: "SRV_01", ts: "May 19, 2024 12:41:03", status: "Open", detail: "Task registered to execute powershell.exe -enc via TaskScheduler." },
-  { severity: "High", type: "Credential Dump", source: "WST_02", target: "LSASS", ts: "May 19, 2024 12:12:59", status: "Contained", detail: "MiniDump of lsass.exe via comsvcs.dll observed." },
-  { severity: "Medium", type: "New Local Admin", source: "SVC_01", target: "SRV_01", ts: "May 19, 2024 11:58:20", status: "Investigating", detail: "Local Administrators group modified with new principal SVC_01." },
-  { severity: "Critical", type: "Golden Ticket", source: "WST_02", target: "DC_01", ts: "May 19, 2024 11:44:02", status: "Open", detail: "TGT with unusually long lifetime and encryption downgrade to RC4." },
-];
+const nodeToMitreKey: Record<string, keyof typeof AegisPathModel.mitreMappings> = {
+  "USR_03": "USR_03",
+  "WST_02": "WST_02_dumping",
+  "SVC_01": "SVC_01_abuse",
+  "DC_01": "DC_01_escalation"
+};
+
+const EVENTS: Row[] = AegisPathModel.threatEvents.map(evt => {
+  const mitreMapping = AegisPathModel.mitreMappings[nodeToMitreKey[evt.node]];
+  return {
+    id: evt.id,
+    severity: evt.severity as Severity,
+    type: evt.id === "evt_001" ? "Initial Access" : 
+          evt.id === "evt_002" ? "Credential Dumping" : 
+          evt.id === "evt_003" ? "Lateral Movement" : "Domain Escalation",
+    source: evt.source,
+    target: evt.node,
+    ts: evt.timestamp.replace("T", " ").replace("Z", " UTC"),
+    status: "Investigating",
+    detail: evt.message,
+    mitreId: `${mitreMapping.technique} — ${mitreMapping.name}`
+  };
+});
 
 const sevTone: Record<Severity, string> = {
   Critical: "bg-danger/15 text-danger",
@@ -50,7 +64,7 @@ function ThreatEventsPage() {
               filter === f ? "border-teal/60 bg-teal/10 text-teal" : "border-border-app bg-panel text-muted hover:bg-panel-2"
             }`}>{f}</button>
         ))}
-        <div className="ml-auto text-[11.5px] text-muted">{rows.length} events</div>
+        <div className="ml-auto text-[11.5px] font-medium text-muted">{rows.length} core events in active path</div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border-app bg-panel">
@@ -91,8 +105,9 @@ function ThreatEventsPage() {
                 </tr>
                 {open === i && (
                   <tr className="bg-bg/60">
-                    <td colSpan={7} className="border-t border-border-app px-4 py-3 text-[12px] text-muted">
-                      {r.detail}
+                    <td colSpan={7} className="border-t border-border-app px-4 py-4 text-[12px] text-muted space-y-2">
+                      <div><span className="font-semibold text-text">Details:</span> {r.detail}</div>
+                      <div><span className="font-semibold text-text">MITRE ATT&CK:</span> <span className="font-mono text-teal">{r.mitreId}</span></div>
                     </td>
                   </tr>
                 )}

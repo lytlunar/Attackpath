@@ -5,50 +5,38 @@ export const Route = createFileRoute("/_app/intelligence-brief")({
 });
 
 const TIMELINE = [
-  { ts: "May 19, 13:35", event: "DCSync attempt against DC_01 from SRV_01" },
-  { ts: "May 19, 13:22", event: "Kerberoasting: TGS-REQ for SVC_01 in RC4-HMAC" },
-  { ts: "May 19, 12:12", event: "LSASS memory dumped on WST_02" },
-  { ts: "May 19, 11:44", event: "Golden ticket issuance observed" },
-  { ts: "May 18, 22:07", event: "Initial phishing payload executed by USR_03" },
+  { ts: "2026-07-05 14:14", event: "Domain Escalation — DCSync / DRSUAPI activity targeting DC_01" },
+  { ts: "2026-07-05 13:29", event: "Lateral Movement — Kerberos/SMB movement through SVC_01 toward SRV_01" },
+  { ts: "2026-07-05 11:00", event: "Credential Dumping — LSASS MiniDump behavior on WST_02" },
+  { ts: "2026-07-05 08:58", event: "Initial Access — AiTM token replay against USR_03" },
 ];
 
 const IOCS = [
-  { type: "SHA256", value: "9f2c…a1e4b7", confidence: "High" },
-  { type: "Domain", value: "cdn-updater[.]tools", confidence: "High" },
-  { type: "IP", value: "203.0.113.42", confidence: "Medium" },
-  { type: "Mutex", value: "Global\\svc_ldr_1", confidence: "Medium" },
+  { type: "Process / DLL", value: "comsvcs.dll", confidence: "High" },
+  { type: "Memory Artifact", value: "LSASS MiniDump on WST_02", confidence: "High" },
+  { type: "Protocol / Mvt", value: "Kerberos / SMB toward SRV_01", confidence: "Medium" },
+  { type: "Replication", value: "DRSUAPI / DCSync activity", confidence: "High" },
 ];
 
-const ACTIONS = [
-  { priority: "P0", text: "Patch WST_02 (CVE-2024-XXXX) within 24 hours." },
-  { priority: "P0", text: "Rotate SVC_01 credentials and invalidate all Kerberos tickets." },
-  { priority: "P1", text: "Enforce SMB signing and disable NTLMv1 domain-wide." },
-  { priority: "P1", text: "Segment SRV_01 into privileged tier network." },
-  { priority: "P2", text: "Add detection rule for lsass.exe MiniDump via comsvcs.dll." },
-];
+
 
 function IntelligenceBriefPage() {
   return (
     <div className="space-y-4">
       <Section title="Executive Summary" eyebrow="REPORT">
         <p className="text-[13px] leading-relaxed text-muted">
-          An adversary consistent with the tactics of <span className="font-semibold text-text">APT-Nightshade</span> has
-          established a foothold via phished user <span className="font-mono text-text">USR_03</span>, escalated on the
-          unpatched workstation <span className="font-mono text-text">WST_02</span>, and pivoted to the
-          high-privilege service account <span className="font-mono text-text">SVC_01</span>. Reaching
-          <span className="font-mono text-text"> DC_01</span> would result in full domain compromise. Immediate patching
-          of the chokepoint (WST_02) reduces projected risk from 500 to 120.
+          Analysis of the curated SOC event chain shows session token replay against <span className="font-mono text-text">USR_03</span>, credential dumping on <span className="font-mono text-text">WST_02</span>, lateral movement through <span className="font-mono text-text">SVC_01</span>, and escalation toward <span className="font-mono text-text">DC_01</span>. The controlling chokepoint remains WST_02 → SVC_01. Disrupting the chokepoint is projected to reduce risk from 500 to 120 in the simulation model.
         </p>
       </Section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Section title="Threat Actor Profile" eyebrow="ACTOR">
+        <Section title="Observed Campaign Profile" eyebrow="ACTOR">
           <dl className="grid grid-cols-3 gap-y-3 text-[12.5px]">
-            <dt className="text-muted">Alias</dt><dd className="col-span-2 text-text">APT-Nightshade (a.k.a. Iron Kite)</dd>
-            <dt className="text-muted">Origin</dt><dd className="col-span-2 text-text">State-aligned, Eurasia</dd>
-            <dt className="text-muted">Motive</dt><dd className="col-span-2 text-text">Espionage, credential harvesting</dd>
-            <dt className="text-muted">TTPs</dt><dd className="col-span-2 text-text">T1078 · T1068 · T1003 · T1021.002 · T1558</dd>
-            <dt className="text-muted">Toolset</dt><dd className="col-span-2 text-text">Mimikatz variant, custom loader, LOLBAS</dd>
+            <dt className="text-muted">Attribution</dt><dd className="col-span-2 text-text">Unknown / Unattributed campaign</dd>
+            <dt className="text-muted">Initial Access</dt><dd className="col-span-2 text-text">AiTM session token replay against USR_03</dd>
+            <dt className="text-muted">Objective</dt><dd className="col-span-2 text-text">Credential exposure and domain escalation</dd>
+            <dt className="text-muted">Techniques</dt><dd className="col-span-2 text-text">T1021, T1068, T1003.001, DCSync / DRSUAPI</dd>
+            <dt className="text-muted">Signals</dt><dd className="col-span-2 text-text">comsvcs.dll MiniDump, Kerberos/SMB movement</dd>
           </dl>
         </Section>
 
@@ -84,16 +72,21 @@ function IntelligenceBriefPage() {
         </table>
       </Section>
 
-      <Section title="Recommended Actions" eyebrow="PLAYBOOK">
-        <ol className="space-y-2">
-          {ACTIONS.map((a, i) => (
-            <li key={i} className="flex items-start gap-3 rounded-md border border-border-app bg-bg/60 p-3">
-              <span className="font-mono text-[12px] font-bold text-muted">{i + 1}.</span>
-              <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${a.priority === "P0" ? "bg-danger/15 text-danger" : a.priority === "P1" ? "bg-orange/15 text-orange" : "bg-teal/15 text-teal"}`}>{a.priority}</span>
-              <span className="text-[13px] text-text">{a.text}</span>
-            </li>
-          ))}
-        </ol>
+      <Section title="Strategic Assessment" eyebrow="ASSESSMENT">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-1 rounded-md border border-border-app bg-bg/60 p-3">
+            <span className="text-[11.5px] font-bold tracking-wide text-muted uppercase">Controlling Chokepoint</span>
+            <span className="text-[13px] text-text">WST_02 → SVC_01 is the key transition where endpoint compromise becomes service-account exposure.</span>
+          </div>
+          <div className="flex flex-col gap-1 rounded-md border border-border-app bg-bg/60 p-3">
+            <span className="text-[11.5px] font-bold tracking-wide text-muted uppercase">Operational Meaning</span>
+            <span className="text-[13px] text-text">The active path creates an escalation route from USR_03 toward DC_01 through WST_02, SVC_01, and SRV_01.</span>
+          </div>
+          <div className="flex flex-col gap-1 rounded-md border border-border-app bg-bg/60 p-3">
+            <span className="text-[11.5px] font-bold tracking-wide text-muted uppercase">Simulation Boundary</span>
+            <span className="text-[13px] text-text">This brief identifies the risk pattern only. Projected remediation impact should be evaluated in Risk Simulation before operational execution.</span>
+          </div>
+        </div>
       </Section>
     </div>
   );

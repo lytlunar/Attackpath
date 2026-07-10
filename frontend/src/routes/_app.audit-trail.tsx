@@ -12,23 +12,13 @@ type Entry = { ts: string; user: string; action: string; resource: string; ip: s
 
 /** Static baseline entries — never changes */
 const STATIC_ENTRIES: Entry[] = [
-  { ts: "2024-05-19 13:42:11", user: "amorgan", action: "View Attack Graph", resource: "/attack-graph", ip: "10.20.4.11", result: "Success" },
-  { ts: "2024-05-19 13:40:02", user: "amorgan", action: "Run Simulation", resource: "WST_02 patch", ip: "10.20.4.11", result: "Success" },
-  { ts: "2024-05-19 13:35:02", user: "system", action: "Detect", resource: "DC_01 LDAP bind", ip: "10.20.7.14", result: "Warning" },
-  { ts: "2024-05-19 13:22:07", user: "system", action: "Detect", resource: "Kerberoasting SVC_01", ip: "10.20.4.22", result: "Warning" },
-  { ts: "2024-05-19 12:58:20", user: "jchen", action: "Login", resource: "AegisPath UI", ip: "10.20.3.9", result: "Success" },
-  { ts: "2024-05-19 12:45:11", user: "jchen", action: "Export Report", resource: "Intelligence Brief", ip: "10.20.3.9", result: "Success" },
-  { ts: "2024-05-19 12:12:59", user: "system", action: "Detect", resource: "LSASS dump WST_02", ip: "10.20.4.22", result: "Warning" },
-  { ts: "2024-05-19 11:58:20", user: "svc_ingest", action: "Ingest", resource: "SIEM feed batch #4419", ip: "10.20.9.2", result: "Success" },
-  { ts: "2024-05-19 11:44:02", user: "system", action: "Detect", resource: "Golden Ticket DC_01", ip: "10.20.4.22", result: "Warning" },
-  { ts: "2024-05-19 11:12:07", user: "rking", action: "Update Rule", resource: "Detection: T1003", ip: "10.20.3.44", result: "Success" },
-  { ts: "2024-05-19 10:48:33", user: "rking", action: "Login", resource: "AegisPath UI", ip: "10.20.3.44", result: "Failure" },
-  { ts: "2024-05-19 10:48:41", user: "rking", action: "Login", resource: "AegisPath UI", ip: "10.20.3.44", result: "Success" },
-  { ts: "2024-05-19 09:30:00", user: "system", action: "Sync", resource: "Threat Intel Feed", ip: "10.20.9.2", result: "Success" },
-  { ts: "2024-05-19 09:15:22", user: "amorgan", action: "Login", resource: "AegisPath UI", ip: "10.20.4.11", result: "Success" },
-  { ts: "2024-05-18 22:07:44", user: "usr_03", action: "Execute", resource: "invoice_042.docm", ip: "10.20.4.88", result: "Failure" },
-  { ts: "2024-05-18 18:00:00", user: "svc_ingest", action: "Ingest", resource: "SIEM feed batch #4418", ip: "10.20.9.2", result: "Success" },
-  { ts: "2024-05-18 17:12:03", user: "jchen", action: "Acknowledge Alert", resource: "SMB Brute Force", ip: "10.20.3.9", result: "Success" },
+  { ts: "2026-07-05 15:10:00", user: "amorgan", action: "Intelligence Brief Updated", resource: "Intelligence Brief — SOC aligned", ip: "10.20.4.11", result: "Success" },
+  { ts: "2026-07-05 15:05:22", user: "system", action: "Chokepoint Identified", resource: "WST_02 → SVC_01", ip: "10.20.9.2", result: "Success" },
+  { ts: "2026-07-05 14:45:10", user: "system", action: "Attack Graph Generated", resource: "Path: USR_03 → WST_02 → SVC_01 → SRV_01 → DC_01", ip: "10.20.9.2", result: "Success" },
+  { ts: "2026-07-05 14:14:33", user: "system", action: "Domain Escalation Detected", resource: "DCSync / DRSUAPI targeting DC_01", ip: "10.20.4.22", result: "Warning" },
+  { ts: "2026-07-05 13:29:03", user: "system", action: "Lateral Movement Mapped", resource: "Kerberos/SMB toward SRV_01", ip: "10.20.4.22", result: "Warning" },
+  { ts: "2026-07-05 11:00:03", user: "system", action: "Credential Dumping Confirmed", resource: "LSASS MiniDump on WST_02", ip: "10.20.4.22", result: "Warning" },
+  { ts: "2026-07-05 08:58:40", user: "system", action: "Initial Access Recorded", resource: "AiTM replay against USR_03", ip: "10.20.4.22", result: "Warning" },
 ];
 
 function AuditTrailPage() {
@@ -92,7 +82,7 @@ function AuditTrailPage() {
         <input
           type="date"
           className="rounded-md border border-border-app bg-panel-2 px-2 py-1.5 text-[12px] text-text"
-          defaultValue="2024-05-19"
+          defaultValue="2026-07-05"
         />
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[11.5px] text-muted">{rows.length} entries</span>

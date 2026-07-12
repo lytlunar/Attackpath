@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Download, ShieldCheck } from "lucide-react";
+import { Download, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useAegisPath } from "../context/AegisPathContext";
 
 export const Route = createFileRoute("/_app/audit-trail")({
@@ -8,50 +8,58 @@ export const Route = createFileRoute("/_app/audit-trail")({
 });
 
 type Result = "Success" | "Failure" | "Warning";
-type Entry = { ts: string; user: string; action: string; resource: string; ip: string; result: Result; dynamic?: boolean };
+type Entry = { id: string; ts: string; isoTs?: string; user: string; action: string; resource: string; ip: string; result: Result; dynamic?: boolean };
 
-/** Static baseline entries — never changes */
+function formatDate(isoStr: string) {
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 const STATIC_ENTRIES: Entry[] = [
-  { ts: "2026-07-05 15:10:00", user: "amorgan", action: "Intelligence Brief Updated", resource: "Intelligence Brief — SOC aligned", ip: "10.20.4.11", result: "Success" },
-  { ts: "2026-07-05 15:05:22", user: "system", action: "Chokepoint Identified", resource: "WST_02 → SVC_01", ip: "10.20.9.2", result: "Success" },
-  { ts: "2026-07-05 14:45:10", user: "system", action: "Attack Graph Generated", resource: "Path: USR_03 → WST_02 → SVC_01 → SRV_01 → DC_01", ip: "10.20.9.2", result: "Success" },
-  { ts: "2026-07-05 14:14:33", user: "system", action: "Domain Escalation Detected", resource: "DCSync / DRSUAPI targeting DC_01", ip: "10.20.4.22", result: "Warning" },
-  { ts: "2026-07-05 13:29:03", user: "system", action: "Lateral Movement Mapped", resource: "Kerberos/SMB toward SRV_01", ip: "10.20.4.22", result: "Warning" },
-  { ts: "2026-07-05 11:00:03", user: "system", action: "Credential Dumping Confirmed", resource: "LSASS MiniDump on WST_02", ip: "10.20.4.22", result: "Warning" },
-  { ts: "2026-07-05 08:58:40", user: "system", action: "Initial Access Recorded", resource: "AiTM replay against USR_03", ip: "10.20.4.22", result: "Warning" },
+  { id: "s1", ts: "2026-07-05 15:10:00", user: "amorgan", action: "Intelligence Brief Updated", resource: "Intelligence Brief — SOC aligned", ip: "10.20.4.11", result: "Success" },
+  { id: "s2", ts: "2026-07-05 15:05:22", user: "system", action: "Chokepoint Identified", resource: "WST_02 → SVC_01", ip: "10.20.9.2", result: "Success" },
+  { id: "s3", ts: "2026-07-05 14:45:10", user: "system", action: "Attack Graph Generated", resource: "Path: USR_03 → WST_02 → SVC_01 → SRV_01 → DC_01", ip: "10.20.9.2", result: "Success" },
+  { id: "s4", ts: "2026-07-05 14:14:33", user: "system", action: "Domain Escalation Detected", resource: "DCSync / DRSUAPI targeting DC_01", ip: "10.20.4.22", result: "Warning" },
+  { id: "s5", ts: "2026-07-05 13:29:03", user: "system", action: "Lateral Movement Mapped", resource: "Kerberos/SMB toward SRV_01", ip: "10.20.4.22", result: "Warning" },
+  { id: "s6", ts: "2026-07-05 11:00:03", user: "system", action: "Credential Dumping Confirmed", resource: "LSASS MiniDump on WST_02", ip: "10.20.4.22", result: "Warning" },
+  { id: "s7", ts: "2026-07-05 08:58:40", user: "system", action: "Initial Access Recorded", resource: "AiTM replay against USR_03", ip: "10.20.4.22", result: "Warning" },
 ];
 
 function AuditTrailPage() {
-  // ─── Read from global context (read-only) ────────────────────────────
-  const { remediationApplied, remediationTimestamp } = useAegisPath();
+  const { remediationApplied, remediationTimestamp, dynamicAuditEntries, isLoading, isError } = useAegisPath();
 
   const [user, setUser] = useState("all");
   const [action, setAction] = useState("all");
 
-  /**
-   * Dynamic entry injected at the top when remediation is applied.
-   * This represents the live simulation action logged in real time.
-   */
-  const dynamicEntry: Entry | null = useMemo(() => {
-    if (!remediationApplied || !remediationTimestamp) return null;
-    const d = new Date(remediationTimestamp);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const ts = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    return {
-      ts,
-      user: "amorgan",
-      action: "Apply Remediation",
-      resource: "WST_02 — Remediation Bundle",
-      ip: "10.20.4.11",
-      result: "Success",
-      dynamic: true,
-    };
-  }, [remediationApplied, remediationTimestamp]);
-
-  /** All entries — dynamic on top if remediation applied */
   const allEntries: Entry[] = useMemo(() => {
-    return dynamicEntry ? [dynamicEntry, ...STATIC_ENTRIES] : STATIC_ENTRIES;
-  }, [dynamicEntry]);
+    const dynamicMapped: Entry[] = (dynamicAuditEntries || []).map(e => ({
+      id: e.id,
+      ts: formatDate(e.timestamp),
+      isoTs: e.timestamp,
+      user: e.user,
+      action: e.action,
+      resource: e.resource,
+      ip: e.ipAddress,
+      result: e.result as Result,
+      dynamic: e.dynamic
+    }));
+
+    const dynamicIds = new Set(dynamicMapped.map(e => e.id));
+
+    dynamicMapped.sort((a, b) => {
+      const timeA = new Date(a.isoTs || a.ts).getTime();
+      const timeB = new Date(b.isoTs || b.ts).getTime();
+      const validA = isNaN(timeA) ? 0 : timeA;
+      const validB = isNaN(timeB) ? 0 : timeB;
+      return validB - validA;
+    });
+
+    const staticRemaining = STATIC_ENTRIES.filter(e => !dynamicIds.has(e.id));
+
+    return [...dynamicMapped, ...staticRemaining];
+  }, [dynamicAuditEntries]);
 
   const users = useMemo(() => ["all", ...Array.from(new Set(allEntries.map((e) => e.user)))], [allEntries]);
   const actions = useMemo(() => ["all", ...Array.from(new Set(allEntries.map((e) => e.action)))], [allEntries]);
@@ -62,14 +70,20 @@ function AuditTrailPage() {
 
   return (
     <div className="space-y-4">
+      {isError && (
+        <div className="flex items-center gap-2 rounded-lg border border-danger/40 bg-danger/10 p-3 text-[12px] font-semibold text-danger">
+          <AlertTriangle className="h-4 w-4" /> Error loading recent audit history. Displaying last valid state.
+        </div>
+      )}
+
       {/* Dynamic alert banner when remediation applied */}
-      {remediationApplied && (
+      {remediationApplied && !isError && (
         <div className="fade-up flex items-center gap-3 rounded-lg border border-green/40 bg-green/8 px-4 py-3 text-[12.5px] font-semibold text-green">
           <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-          Remediation simulation logged · WST_02 Remediation Bundle applied by amorgan
+          Remediation simulation logged · WST_02 Remediation Bundle applied
           {remediationTimestamp && (
             <span className="ml-auto font-mono text-[11px] text-green/70">
-              {new Date(remediationTimestamp).toLocaleTimeString()}
+              {formatDate(remediationTimestamp)}
             </span>
           )}
         </div>
@@ -85,6 +99,9 @@ function AuditTrailPage() {
           defaultValue="2026-07-05"
         />
         <div className="ml-auto flex items-center gap-2">
+          {isLoading && (
+            <span className="mr-2 text-[11px] font-medium text-muted">Syncing...</span>
+          )}
           <span className="text-[11.5px] text-muted">{rows.length} entries</span>
           <button className="inline-flex items-center gap-1.5 rounded-md border border-teal/40 bg-teal/10 px-3 py-1.5 text-[12px] font-semibold text-teal hover:bg-teal/15">
             <Download className="h-3.5 w-3.5" /> Export
@@ -108,7 +125,7 @@ function AuditTrailPage() {
           <tbody>
             {rows.map((r, i) => (
               <tr
-                key={i}
+                key={r.id}
                 className={`border-t border-border-app hover:bg-panel-2/60 transition-colors ${
                   r.dynamic
                     ? "bg-green/5 ring-1 ring-inset ring-green/20"

@@ -76,6 +76,7 @@ interface AegisPathContextType {
   error: Error | null;
   previewRemediation: (bundleId: string) => Promise<RemediationPreview>;
   dynamicAuditEntries: AuditEntry[];
+  isMutating: boolean;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -142,10 +143,11 @@ export function AegisPathProvider({ children }: { children: ReactNode }) {
     error: error instanceof Error ? error : null,
     previewRemediation,
     dynamicAuditEntries,
+    isMutating,
   }), [
     sessionApplied, applyRemediation, resetRemediation, metrics, 
     sessionTimestamp, scenarioState, isLoading, isError, error, 
-    previewRemediation, dynamicAuditEntries
+    previewRemediation, dynamicAuditEntries, isMutating
   ]);
 
   return (

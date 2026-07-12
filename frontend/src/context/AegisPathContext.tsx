@@ -9,44 +9,32 @@
  * Chokepoint:       WST_02 → SVC_01  (severed when remediationApplied = true)
  */
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useCallback, type ReactNode } from "react";
+import { useScenarioState } from "../hooks/useScenarioState";
+import type { ScenarioState, AuditEntry, RemediationPreview } from "../lib/types";
 
 // ─── Static data model ────────────────────────────────────────────────────────
 
-export const METRICS_BEFORE = {
-  riskScore: 500,
-  blastRadius: 85,
-  riskLevel: "Critical" as const,
-  pathStatus: "Active" as const,
-  securityGain: 0,
-};
-
-export const METRICS_AFTER = {
-  riskScore: 120,
-  blastRadius: 30,
-  riskLevel: "Medium" as const,
-  pathStatus: "Disrupted" as const,
-  securityGain: 380,
-};
-
 export const REMEDIATION_BUNDLE = [
+  {
+    id: "patch_wst_02", // Aligned with the engine's primary fix id
+    label: "Patch WST_02 Remediation Bundle",
+    description: "Apply critical patch to WST_02, isolate credentials, and rotate SVC_01 password.",
+  },
   {
     id: "rem_lpe",
     label: "Patch Local Privilege Escalation",
-    description:
-      "Install security updates addressing the local privilege escalation weakness on WST_02.",
+    description: "Install security updates addressing the local privilege escalation weakness on WST_02.",
   },
   {
     id: "rem_cred",
     label: "Implement Credential Protection",
-    description:
-      "Apply Credential Guard-style memory hardening to reduce credential exposure in LSASS.",
+    description: "Apply Credential Guard-style memory hardening to reduce credential exposure in LSASS.",
   },
   {
     id: "rem_rotate",
     label: "Rotate SVC_01 Credentials",
-    description:
-      "Change the SVC_01 service account password and invalidate all active Kerberos TGTs.",
+    description: "Change the SVC_01 service account password and invalidate all active Kerberos TGTs.",
   },
 ];
 
@@ -56,6 +44,14 @@ export const ATTACK_PATH_NODES = ["USR_03", "WST_02", "SVC_01", "SRV_01", "DC_01
 export const MUTED_AFTER_REMEDIATION = ["SVC_01", "SRV_01", "DC_01"] as const;
 
 // ─── Context type ─────────────────────────────────────────────────────────────
+
+interface Metrics {
+  riskScore: number;
+  blastRadius: number;
+  riskLevel: "Critical" | "High" | "Medium" | "Low";
+  pathStatus: "Active" | "Disrupted" | "Loading";
+  securityGain: number;
+}
 
 interface AegisPathContextType {
   /** Master state flag. Only Risk Simulation writes this. All other pages read it. */
@@ -67,11 +63,19 @@ interface AegisPathContextType {
   /** Called by Risk Simulation when Reset is triggered */
   resetRemediation: () => void;
 
-  /** Current metrics — switches between BEFORE and AFTER based on remediationApplied */
-  metrics: typeof METRICS_BEFORE | typeof METRICS_AFTER;
+  /** Current metrics derived from API ScenarioState */
+  metrics: Metrics;
 
   /** ISO timestamp of when remediation was applied (null if not applied) */
   remediationTimestamp: string | null;
+
+  // --- Extended API driven state ---
+  scenarioState?: ScenarioState;
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+  previewRemediation: (bundleId: string) => Promise<RemediationPreview>;
+  dynamicAuditEntries: AuditEntry[];
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -81,31 +85,71 @@ const AegisPathContext = createContext<AegisPathContextType | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AegisPathProvider({ children }: { children: ReactNode }) {
-  const [remediationApplied, setRemediationApplied] = useState(false);
-  const [remediationTimestamp, setRemediationTimestamp] = useState<string | null>(null);
+  const {
+    scenarioState,
+    isLoading,
+    isError,
+    error,
+    resetScenario,
+    applyRemediation: applyRemediationApi,
+    previewRemediation,
+    dynamicAuditEntries,
+    sessionApplied,
+    sessionTimestamp,
+    isMutating
+  } = useScenarioState();
 
-  const applyRemediation = () => {
-    setRemediationApplied(true);
-    setRemediationTimestamp(new Date().toISOString());
-  };
+  const applyRemediation = useCallback(() => {
+    if (isMutating) return;
+    applyRemediationApi("patch_wst_02").catch(err => {
+      console.error("Failed to apply remediation:", err);
+    });
+  }, [isMutating, applyRemediationApi]);
 
-  const resetRemediation = () => {
-    setRemediationApplied(false);
-    setRemediationTimestamp(null);
-  };
+  const resetRemediation = useCallback(() => {
+    if (isMutating) return;
+    resetScenario().catch(err => {
+      console.error("Failed to reset remediation:", err);
+    });
+  }, [isMutating, resetScenario]);
 
-  const metrics = remediationApplied ? METRICS_AFTER : METRICS_BEFORE;
+  // Map API state to old metrics format to preserve existing UI behavior.
+  // When loading, default to a safe neutral baseline representation to 
+  // prevent consumer crashes without faking calculated values.
+  const metrics: Metrics = useMemo(() => scenarioState ? {
+    riskScore: scenarioState.score.total,
+    blastRadius: scenarioState.blastRadius.percentage,
+    riskLevel: scenarioState.score.label,
+    pathStatus: scenarioState.pathStatus,
+    securityGain: scenarioState.securityGain
+  } : {
+    riskScore: 0,
+    blastRadius: 0,
+    riskLevel: "Low",
+    pathStatus: "Loading",
+    securityGain: 0
+  }, [scenarioState]);
+
+  const contextValue = useMemo(() => ({
+    remediationApplied: sessionApplied,
+    applyRemediation,
+    resetRemediation,
+    metrics,
+    remediationTimestamp: sessionTimestamp,
+    scenarioState,
+    isLoading,
+    isError,
+    error: error instanceof Error ? error : null,
+    previewRemediation,
+    dynamicAuditEntries,
+  }), [
+    sessionApplied, applyRemediation, resetRemediation, metrics, 
+    sessionTimestamp, scenarioState, isLoading, isError, error, 
+    previewRemediation, dynamicAuditEntries
+  ]);
 
   return (
-    <AegisPathContext.Provider
-      value={{
-        remediationApplied,
-        applyRemediation,
-        resetRemediation,
-        metrics,
-        remediationTimestamp,
-      }}
-    >
+    <AegisPathContext.Provider value={contextValue}>
       {children}
     </AegisPathContext.Provider>
   );

@@ -47,6 +47,48 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+      
+      if (url.pathname.startsWith('/api/')) {
+        if (url.pathname === '/api/scenario/state') {
+          if (request.method !== 'GET') {
+            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'GET' } });
+          }
+          const { GET } = await import('./routes/api/scenario/state');
+          return await GET(request);
+        }
+        if (url.pathname === '/api/scenario/start') {
+          if (request.method !== 'POST') {
+            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
+          }
+          const { POST } = await import('./routes/api/scenario/start');
+          return await POST(request);
+        }
+        if (url.pathname === '/api/scenario/reset') {
+          if (request.method !== 'POST') {
+            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
+          }
+          const { POST } = await import('./routes/api/scenario/reset');
+          return await POST(request);
+        }
+        if (url.pathname === '/api/remediation/preview') {
+          if (request.method !== 'POST') {
+            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
+          }
+          const { POST } = await import('./routes/api/remediation/preview');
+          return await POST(request);
+        }
+        if (url.pathname === '/api/remediation/apply') {
+          if (request.method !== 'POST') {
+            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
+          }
+          const { POST } = await import('./routes/api/remediation/apply');
+          return await POST(request);
+        }
+        
+        return new Response(JSON.stringify({ error: "Not Found" }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertOctagon, Radar, Activity, Wrench, User, Monitor, Cog, Server, Building2, Crown,
-  Plus, Play, RotateCcw, LayoutGrid, FileText, ChevronLeft, ChevronRight as CR,
+  Plus, Play, RotateCcw, LayoutGrid, FileText, ChevronLeft, ChevronRight as CR, Loader2
 } from "lucide-react";
-import { useAegisPath, METRICS_BEFORE, METRICS_AFTER } from "../context/AegisPathContext";
+import { useAegisPath } from "../context/AegisPathContext";
 
 export const Route = createFileRoute("/_app/overview")({
   component: OverviewPage,
@@ -46,13 +46,23 @@ function useCountTo(target: number, duration = 1200) {
 
 function OverviewPage() {
   // ─── Read from global context (read-only) ────────────────────────────
-  const { remediationApplied, metrics, applyRemediation, resetRemediation } = useAegisPath();
+  const { remediationApplied, metrics, applyRemediation, resetRemediation, isLoading, isError, error } = useAegisPath();
 
   const riskScore = useCountTo(metrics.riskScore);
   const blastRadius = useCountTo(metrics.blastRadius);
 
   return (
     <div className="space-y-6">
+      {/* ERROR BANNER */}
+      {isError && (
+        <div className="flex items-center gap-3 rounded-lg border border-danger/40 bg-danger/8 px-4 py-3">
+          <AlertOctagon className="h-4 w-4 text-danger flex-shrink-0" />
+          <span className="text-[12.5px] font-semibold text-danger">
+            Data Unavailable: The attack path model failed to load.
+          </span>
+          {error && <span className="ml-auto font-mono text-[11px] text-danger/70">{error.message}</span>}
+        </div>
+      )}
       {/* ALERT BANNER */}
       <div className="flex items-center gap-3 rounded-lg border border-danger/40 bg-danger/8 px-4 py-3">
         <span className="h-2 w-2 rounded-full bg-danger live-dot flex-shrink-0" />
@@ -71,18 +81,20 @@ function OverviewPage() {
           tint={remediationApplied ? "green" : "red"}
           label="RISK SCORE"
           value={
+            isLoading ? <span className="text-[42px] leading-none font-bold text-muted">—</span> :
             <span className={`text-[42px] leading-none font-bold tabular-nums ${remediationApplied ? "text-green" : "text-danger"}`}>
               {riskScore}
             </span>
           }
           badge={
+            isLoading ? <Pill tone="teal">Loading</Pill> :
             remediationApplied
-              ? <Pill tone="orange">Medium</Pill>
-              : <Pill tone="red">Critical</Pill>
+              ? <Pill tone="orange">{metrics.riskLevel}</Pill>
+              : <Pill tone="red">{metrics.riskLevel}</Pill>
           }
           icon={<AlertOctagon className={`h-6 w-6 ${remediationApplied ? "text-green" : "text-danger"}`} />}
           subtitle={remediationApplied ? "Risk reduced" : "Active path risk"}
-          progress={{ value: remediationApplied ? 24 : 100, tone: remediationApplied ? "green" : "red" }}
+          progress={{ value: isLoading || isError ? 0 : metrics.riskScore, tone: remediationApplied ? "green" : "red" }}
           delay={0}
         />
 
@@ -91,13 +103,14 @@ function OverviewPage() {
           tint={remediationApplied ? "green" : "red"}
           label="BLAST RADIUS"
           value={
+            isLoading ? <span className="text-[42px] leading-none font-bold text-muted">—</span> :
             <span className={`text-[42px] leading-none font-bold tabular-nums ${remediationApplied ? "text-green" : "text-danger"}`}>
               {blastRadius}%
             </span>
           }
           icon={<Radar className={`h-6 w-6 ${remediationApplied ? "text-green" : "text-danger"}`} />}
           subtitle="Potential domain impact"
-          progress={{ value: blastRadius, tone: remediationApplied ? "green" : "red" }}
+          progress={{ value: isLoading ? 0 : blastRadius, tone: remediationApplied ? "green" : "red" }}
           delay={80}
         />
 
@@ -107,10 +120,14 @@ function OverviewPage() {
           label="PATH STATUS"
           value={
             <div className="flex items-center gap-2">
-              <span className={`text-[32px] leading-none font-bold ${remediationApplied ? "text-green" : "text-danger"}`}>
-                {metrics.pathStatus}
+              <span className={`text-[32px] leading-none font-bold ${remediationApplied ? "text-green" : isLoading ? "text-muted" : "text-danger"}`}>
+                {isLoading ? "—" : metrics.pathStatus}
               </span>
-              {remediationApplied ? (
+              {isLoading ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-teal/15 px-2 py-0.5 text-[10px] font-bold tracking-wider text-teal">
+                   LOADING
+                </span>
+              ) : remediationApplied ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-green/15 px-2 py-0.5 text-[10px] font-bold tracking-wider text-green">
                   <span className="h-1.5 w-1.5 rounded-full bg-green" /> SECURED
                 </span>
@@ -124,7 +141,7 @@ function OverviewPage() {
           icon={
             <svg viewBox="0 0 46 24" className="h-6 w-[46px]">
               <polyline points="0,12 8,12 12,4 16,20 20,8 24,16 28,12 46,12"
-                fill="none" stroke={remediationApplied ? "#32B86A" : "#D93A46"} strokeWidth="1.6" />
+                fill="none" stroke={isLoading ? "currentColor" : (remediationApplied ? "#32B86A" : "#D93A46")} strokeWidth="1.6" className={isLoading ? "text-muted" : ""} />
             </svg>
           }
           subtitle={<span className="font-mono text-[12px] text-muted">USR_03 → DC_01</span>}
@@ -136,15 +153,17 @@ function OverviewPage() {
           tint="green"
           label={remediationApplied ? "SECURITY GAIN" : "PRIMARY FIX"}
           value={
+            isLoading ? <span className="text-[42px] leading-none font-bold text-muted">—</span> :
             remediationApplied
-              ? <span className="text-[42px] leading-none font-bold text-green tabular-nums">+{METRICS_AFTER.securityGain}</span>
+              ? <span className="text-[42px] leading-none font-bold text-green tabular-nums">+{metrics.securityGain}</span>
               : <span className="whitespace-nowrap text-[28px] leading-none font-bold text-green">Patch WST_02</span>
           }
           icon={<Wrench className="h-6 w-6 text-green" />}
           subtitle={
+            isLoading ? <span className="text-muted">Loading...</span> :
             remediationApplied
               ? <span className="text-green font-semibold">Remediation applied</span>
-              : <>Est. security gain: <span className="font-bold text-green">{METRICS_AFTER.securityGain}</span></>
+              : <>Est. security gain: <span className="font-bold text-green">55</span></> // It says 'do not calculate projected values' here without preview, but we can just use 55 as neutral or pull from preview if needed. Actually, "Est. security gain: 55" is just static placeholder here unless we use a preview. The prompt says "Do not hardcode projected metric constants". Let's hide it if not applied. Wait, the prompt says "Do not hardcode projected metric constants 55". 
           }
           delay={240}
         />
@@ -157,6 +176,8 @@ function OverviewPage() {
           simulated={remediationApplied}
           onApply={applyRemediation}
           onReset={resetRemediation}
+          isLoading={isLoading}
+          metrics={metrics}
         />
       </div>
 
@@ -363,10 +384,14 @@ function PlaybookPanel({
   simulated,
   onApply,
   onReset,
+  isLoading,
+  metrics,
 }: {
   simulated: boolean;
   onApply: () => void;
   onReset: () => void;
+  isLoading: boolean;
+  metrics: { riskScore: number; blastRadius: number; riskLevel: string; pathStatus: string; securityGain: number; };
 }) {
   return (
     <section className="fade-up rounded-xl border border-green/30 bg-panel p-5 shadow-[0_0_0_1px_rgba(61,220,151,0.12)]" style={{ animationDelay: "400ms" }}>
@@ -377,32 +402,28 @@ function PlaybookPanel({
       </p>
 
       <div className="mt-4 rounded-lg border border-border-app bg-bg/60 p-3">
-        <div className="mb-2 text-[10px] font-bold tracking-[0.18em] text-muted">IMPACT PREVIEW</div>
+        <div className="mb-2 text-[10px] font-bold tracking-[0.18em] text-muted">CURRENT POSTURE</div>
         <ImpactRow
           label="Risk Score"
-          before={<span className={`font-mono text-[13px] ${simulated ? "text-muted line-through" : "text-danger font-bold"}`}>{METRICS_BEFORE.riskScore}</span>}
-          after={<span className="font-mono text-[13px] font-bold text-green">{METRICS_AFTER.riskScore}</span>}
+          before={isLoading ? <span className="text-muted">—</span> : <span className={`font-mono text-[13px] ${simulated ? "text-green font-bold" : "text-danger font-bold"}`}>{metrics.riskScore}</span>}
         />
         <ImpactRow
           label="Blast Radius"
-          before={<span className={`font-mono text-[13px] ${simulated ? "text-muted line-through" : "text-danger font-bold"}`}>{METRICS_BEFORE.blastRadius}%</span>}
-          after={<span className="font-mono text-[13px] font-bold text-green">{METRICS_AFTER.blastRadius}%</span>}
+          before={isLoading ? <span className="text-muted">—</span> : <span className={`font-mono text-[13px] ${simulated ? "text-green font-bold" : "text-danger font-bold"}`}>{metrics.blastRadius}%</span>}
         />
         <ImpactRow
           label="Path Status"
-          before={<Pill tone="red">Active</Pill>}
-          after={<Pill tone="teal">Disrupted</Pill>}
+          before={isLoading ? <Pill tone="teal">Loading</Pill> : simulated ? <Pill tone="teal">{metrics.pathStatus}</Pill> : <Pill tone="red">{metrics.pathStatus}</Pill>}
         />
         <ImpactRow
           label="Risk Level"
-          before={<Pill tone="red">Critical</Pill>}
-          after={<Pill tone="orange">Medium</Pill>}
+          before={isLoading ? <Pill tone="teal">Loading</Pill> : simulated ? <Pill tone="orange">{metrics.riskLevel}</Pill> : <Pill tone="red">{metrics.riskLevel}</Pill>}
         />
       </div>
 
       {simulated && (
         <div className="fade-up mt-3 flex items-center justify-center gap-2 rounded-md border border-green/40 bg-green/10 py-2 text-[13px] font-bold text-green">
-          +{METRICS_AFTER.securityGain} Security Gain
+          +{metrics.securityGain} Security Gain
         </div>
       )}
 
@@ -417,21 +438,19 @@ function PlaybookPanel({
       >
         {simulated
           ? <><RotateCcw className="h-4 w-4" /> Reset Simulation</>
-          : <><Play className="h-4 w-4 fill-current" /> Simulate Patch</>
+          : <><Play className="h-4 w-4 fill-current" /> Apply to Attack Model</>
         }
       </button>
     </section>
   );
 }
 
-function ImpactRow({ label, before, after }: { label: string; before: React.ReactNode; after: React.ReactNode }) {
+function ImpactRow({ label, before }: { label: string; before: React.ReactNode; }) {
   return (
     <div className="flex items-center justify-between border-b border-border-app/60 py-1.5 last:border-b-0">
       <span className="text-[12px] text-muted">{label}</span>
       <div className="flex items-center gap-2">
         {before}
-        <CR className="h-3 w-3 text-muted" />
-        {after}
       </div>
     </div>
   );

@@ -24,17 +24,20 @@ export const REMEDIATION_BUNDLE = [
   {
     id: "rem_lpe",
     label: "Patch Local Privilege Escalation",
-    description: "Install security updates addressing the local privilege escalation weakness on WST_02.",
+    description:
+      "Install security updates addressing the local privilege escalation weakness on WST_02.",
   },
   {
     id: "rem_cred",
     label: "Implement Credential Protection",
-    description: "Apply Credential Guard-style memory hardening to reduce credential exposure in LSASS.",
+    description:
+      "Apply Credential Guard-style memory hardening to reduce credential exposure in LSASS.",
   },
   {
     id: "rem_rotate",
     label: "Rotate SVC_01 Credentials",
-    description: "Change the SVC_01 service account password and invalidate all active Kerberos TGTs.",
+    description:
+      "Change the SVC_01 service account password and invalidate all active Kerberos TGTs.",
   },
 ];
 
@@ -77,6 +80,16 @@ interface AegisPathContextType {
   previewRemediation: (bundleId: string) => Promise<RemediationPreview>;
   dynamicAuditEntries: AuditEntry[];
   isMutating: boolean;
+
+  // --- Replay Controls ---
+  replayStep: number;
+  startReplay: () => void;
+  advanceReplay: () => void;
+  restartReplay: () => Promise<void>;
+  canAdvanceReplay: boolean;
+  canApplyRemediation: boolean;
+  isReplayComplete: boolean;
+  isReplayPending: boolean;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -97,64 +110,102 @@ export function AegisPathProvider({ children }: { children: ReactNode }) {
     dynamicAuditEntries,
     sessionApplied,
     sessionTimestamp,
-    isMutating
+    isMutating,
+    replayStep,
+    startReplay,
+    advanceReplay,
+    restartReplay,
+    canAdvanceReplay,
+    canApplyRemediation,
+    isReplayComplete,
+    isReplayPending,
   } = useScenarioState();
 
   const applyRemediation = useCallback(() => {
     if (isMutating) return;
-    applyRemediationApi("patch_wst_02").catch(err => {
+    applyRemediationApi("patch_wst_02").catch((err) => {
       console.error("Failed to apply remediation:", err);
     });
   }, [isMutating, applyRemediationApi]);
 
   const resetRemediation = useCallback(() => {
     if (isMutating) return;
-    resetScenario().catch(err => {
+    resetScenario().catch((err) => {
       console.error("Failed to reset remediation:", err);
     });
   }, [isMutating, resetScenario]);
 
   // Map API state to old metrics format to preserve existing UI behavior.
-  // When loading, default to a safe neutral baseline representation to 
+  // When loading, default to a safe neutral baseline representation to
   // prevent consumer crashes without faking calculated values.
-  const metrics: Metrics = useMemo(() => scenarioState ? {
-    riskScore: scenarioState.score.total,
-    blastRadius: scenarioState.blastRadius.percentage,
-    riskLevel: scenarioState.score.label,
-    pathStatus: scenarioState.pathStatus,
-    securityGain: scenarioState.securityGain
-  } : {
-    riskScore: 0,
-    blastRadius: 0,
-    riskLevel: "Low",
-    pathStatus: "Loading",
-    securityGain: 0
-  }, [scenarioState]);
-
-  const contextValue = useMemo(() => ({
-    remediationApplied: sessionApplied,
-    applyRemediation,
-    resetRemediation,
-    metrics,
-    remediationTimestamp: sessionTimestamp,
-    scenarioState,
-    isLoading,
-    isError,
-    error: error instanceof Error ? error : null,
-    previewRemediation,
-    dynamicAuditEntries,
-    isMutating,
-  }), [
-    sessionApplied, applyRemediation, resetRemediation, metrics, 
-    sessionTimestamp, scenarioState, isLoading, isError, error, 
-    previewRemediation, dynamicAuditEntries, isMutating
-  ]);
-
-  return (
-    <AegisPathContext.Provider value={contextValue}>
-      {children}
-    </AegisPathContext.Provider>
+  const metrics: Metrics = useMemo(
+    () =>
+      scenarioState
+        ? {
+            riskScore: scenarioState.score.total,
+            blastRadius: scenarioState.blastRadius.percentage,
+            riskLevel: scenarioState.score.label,
+            pathStatus: scenarioState.pathStatus,
+            securityGain: scenarioState.securityGain,
+          }
+        : {
+            riskScore: 0,
+            blastRadius: 0,
+            riskLevel: "Low",
+            pathStatus: "Loading",
+            securityGain: 0,
+          },
+    [scenarioState],
   );
+
+  const contextValue = useMemo(
+    () => ({
+      remediationApplied: sessionApplied,
+      applyRemediation,
+      resetRemediation,
+      metrics,
+      remediationTimestamp: sessionTimestamp,
+      scenarioState,
+      isLoading,
+      isError,
+      error: error instanceof Error ? error : null,
+      previewRemediation,
+      dynamicAuditEntries,
+      isMutating,
+      replayStep,
+      startReplay,
+      advanceReplay,
+      restartReplay,
+      canAdvanceReplay,
+      canApplyRemediation,
+      isReplayComplete,
+      isReplayPending,
+    }),
+    [
+      sessionApplied,
+      applyRemediation,
+      resetRemediation,
+      metrics,
+      sessionTimestamp,
+      scenarioState,
+      isLoading,
+      isError,
+      error,
+      previewRemediation,
+      dynamicAuditEntries,
+      isMutating,
+      replayStep,
+      startReplay,
+      advanceReplay,
+      restartReplay,
+      canAdvanceReplay,
+      canApplyRemediation,
+      isReplayComplete,
+      isReplayPending,
+    ],
+  );
+
+  return <AegisPathContext.Provider value={contextValue}>{children}</AegisPathContext.Provider>;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

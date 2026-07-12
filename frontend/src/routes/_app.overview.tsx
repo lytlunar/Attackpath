@@ -21,6 +21,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useAegisPath } from "../context/AegisPathContext";
+import { usePhase3Scenario } from "../hooks/usePhase3Scenario";
 
 export const Route = createFileRoute("/_app/overview")({
   component: OverviewPage,
@@ -61,22 +62,40 @@ function useCountTo(target: number, duration = 1200) {
 }
 
 function OverviewPage() {
-  // ─── Read from global context (read-only) ────────────────────────────
   const {
-    remediationApplied,
-    metrics,
-    applyRemediation,
-    resetRemediation,
-    isLoading,
-    isError,
-    error,
+    remediationApplied: p2RemediationApplied,
+    metrics: p2Metrics,
+    applyRemediation: p2ApplyRemediation,
+    resetRemediation: p2ResetRemediation,
+    isLoading: p2Loading,
+    isError: p2Error,
+    error: p2Err,
     scenarioState,
-    replayStep,
-    canApplyRemediation,
+    replayStep: p2ReplayStep,
+    canApplyRemediation: p2CanApply,
+    phase3Mode
   } = useAegisPath();
 
-  const riskScore = useCountTo(metrics.riskScore);
-  const blastRadius = useCountTo(metrics.blastRadius);
+  const {
+    state: p3State,
+    isPending: p3Loading,
+    applyRemediation: p3ApplyRemediation,
+    resetRemediation: p3ResetRemediation,
+  } = usePhase3Scenario();
+
+  const isLoading = phase3Mode ? p3Loading : p2Loading;
+  const isError = phase3Mode ? false : p2Error;
+  const error = phase3Mode ? null : p2Err;
+  const remediationApplied = phase3Mode ? p3State.remediation.applied : p2RemediationApplied;
+  const replayStep = phase3Mode ? p3State.events.length : p2ReplayStep;
+  const canApplyRemediation = phase3Mode ? (p3State.events.length >= 2) : p2CanApply;
+
+  const currentScore = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.score : p3State.priority.score) || 0 : p2Metrics.riskScore;
+  const currentBand = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.band : p3State.priority.band) || "Low" : p2Metrics.riskLevel;
+
+  const riskScore = useCountTo(currentScore);
+  const blastRadius = useCountTo(p2Metrics.blastRadius); // We keep blast radius from Phase 2 since it's not projected in Phase 3
+
 
   return (
     <div className="space-y-6">
@@ -93,7 +112,7 @@ function OverviewPage() {
         </div>
       )}
       {/* ALERT BANNER */}
-      {!isLoading && !isError && scenarioState && (
+      {!isLoading && !isError && (phase3Mode || scenarioState) && (
         <div
           className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${
             remediationApplied
@@ -109,17 +128,31 @@ function OverviewPage() {
             }`}
           />
           <span className="text-[12.5px] font-semibold">
-            {remediationApplied
-              ? "Attack path disrupted — chokepoint severed"
-              : replayStep === 0
-                ? "Replay ready — no threat events processed"
-                : replayStep === 1
-                  ? "Initial Access Detected"
-                  : replayStep === 2
-                    ? "Chokepoint Detected — Remediation Available"
-                    : replayStep === 3
-                      ? "Active Lateral Movement Detected"
-                      : "1 Critical Active Lateral Movement Path Detected"}
+            {phase3Mode ? (
+              remediationApplied
+                ? "Attack path disrupted — synthetic model updated"
+                : replayStep === 0
+                  ? "Synthetic Stream ready — no events processed"
+                  : replayStep === 1
+                    ? "Synthetic Initial Access"
+                    : replayStep === 2
+                      ? "Synthetic Chokepoint — Remediation Available"
+                      : replayStep === 3
+                        ? "Synthetic Lateral Movement Detected"
+                        : "Synthetic Lateral Movement Path Detected"
+            ) : (
+              remediationApplied
+                ? "Attack path disrupted — chokepoint severed"
+                : replayStep === 0
+                  ? "Replay ready — no threat events processed"
+                  : replayStep === 1
+                    ? "Initial Access Detected"
+                    : replayStep === 2
+                      ? "Chokepoint Detected — Remediation Available"
+                      : replayStep === 3
+                        ? "Active Lateral Movement Detected"
+                        : "1 Critical Active Lateral Movement Path Detected"
+            )}
           </span>
           <span
             className={`ml-auto font-mono text-[11px] ${remediationApplied ? "text-green/70" : "text-muted"}`}
@@ -144,7 +177,7 @@ function OverviewPage() {
         {/* Risk Score */}
         <MetricCard
           tint={remediationApplied ? "green" : "red"}
-          label="RISK SCORE"
+          label={phase3Mode ? "PRIORITY SCORE" : "RISK SCORE"}
           value={
             isLoading ? (
               <span className="text-[42px] leading-none font-bold text-muted">—</span>
@@ -160,9 +193,9 @@ function OverviewPage() {
             isLoading ? (
               <Pill tone="teal">Loading</Pill>
             ) : remediationApplied ? (
-              <Pill tone="orange">{metrics.riskLevel}</Pill>
+              <Pill tone="orange">{currentBand}</Pill>
             ) : (
-              <Pill tone="red">{metrics.riskLevel}</Pill>
+              <Pill tone="red">{currentBand}</Pill>
             )
           }
           icon={
@@ -172,7 +205,7 @@ function OverviewPage() {
           }
           subtitle={remediationApplied ? "Risk reduced" : "Active path risk"}
           progress={{
-            value: isLoading || isError ? 0 : metrics.riskScore,
+            value: isLoading || isError ? 0 : currentScore,
             tone: remediationApplied ? "green" : "red",
           }}
           delay={0}
@@ -181,7 +214,7 @@ function OverviewPage() {
         {/* Blast Radius */}
         <MetricCard
           tint={remediationApplied ? "green" : "red"}
-          label="BLAST RADIUS"
+          label={phase3Mode ? "DETECTION-SUPPORTED REACH" : "BLAST RADIUS"}
           value={
             isLoading ? (
               <span className="text-[42px] leading-none font-bold text-muted">—</span>
@@ -189,15 +222,15 @@ function OverviewPage() {
               <span
                 className={`text-[42px] leading-none font-bold tabular-nums ${remediationApplied ? "text-green" : "text-danger"}`}
               >
-                {blastRadius}%
+                {phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.inputs.reachableEntityCount : p3State.priority?.inputs.reachableEntityCount) ?? 0 : `${blastRadius}%`}
               </span>
             )
           }
           icon={
             <Radar className={`h-6 w-6 ${remediationApplied ? "text-green" : "text-danger"}`} />
           }
-          subtitle="Potential domain impact"
-          progress={{
+          subtitle={phase3Mode ? "Downstream entities reachable" : "Potential domain impact"}
+          progress={phase3Mode ? undefined : {
             value: isLoading ? 0 : blastRadius,
             tone: remediationApplied ? "green" : "red",
           }}
@@ -213,7 +246,7 @@ function OverviewPage() {
               <span
                 className={`text-[32px] leading-none font-bold ${remediationApplied ? "text-green" : isLoading ? "text-muted" : "text-danger"}`}
               >
-                {isLoading ? "—" : metrics.pathStatus}
+                {isLoading ? "—" : (phase3Mode ? (remediationApplied ? "Mitigated" : "Active") : p2Metrics.pathStatus)}
               </span>
               {isLoading ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-teal/15 px-2 py-0.5 text-[10px] font-bold tracking-wider text-teal">
@@ -298,15 +331,24 @@ function OverviewPage() {
           simulated={remediationApplied}
           scenarioState={scenarioState}
           replayStep={replayStep}
+          phase3Mode={phase3Mode}
+          p3Graph={p3State.graph}
         />
         <PlaybookPanel
           simulated={remediationApplied}
-          onApply={applyRemediation}
-          onReset={resetRemediation}
+          onApply={phase3Mode ? p3ApplyRemediation : p2ApplyRemediation}
+          onReset={phase3Mode ? p3ResetRemediation : p2ResetRemediation}
           isLoading={isLoading}
-          metrics={metrics}
+          metrics={{
+            riskScore: currentScore,
+            blastRadius: phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.inputs.reachableEntityCount : p3State.priority?.inputs.reachableEntityCount) ?? 0 : p2Metrics.blastRadius,
+            riskLevel: currentBand,
+            pathStatus: phase3Mode ? (remediationApplied ? "Mitigated" : "Active") : p2Metrics.pathStatus,
+            securityGain: phase3Mode ? (p3State.remediation.result?.after.priority.score !== undefined && p3State.priority?.score !== undefined ? (p3State.priority.score - p3State.remediation.result.after.priority.score) : 0) : p2Metrics.securityGain,
+          }}
           canApplyRemediation={canApplyRemediation}
           replayStep={replayStep}
+          phase3Mode={phase3Mode}
         />
       </div>
 
@@ -403,10 +445,14 @@ function AttackPathPanel({
   simulated,
   scenarioState,
   replayStep,
+  phase3Mode,
+  p3Graph,
 }: {
   simulated: boolean;
   scenarioState?: import("../lib/types").ScenarioState;
   replayStep: number;
+  phase3Mode?: boolean;
+  p3Graph?: import("../lib/detectionGraph").DetectionGraph | null;
 }) {
   const nodes: {
     id: NodeId;
@@ -421,15 +467,15 @@ function AttackPathPanel({
       label: "User Identity",
       icon: <User className="h-5 w-5 text-blue" />,
       tint: "bg-blue/15 border-blue/40",
-      muted: replayStep < 1,
+      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "USR_03") : true) : replayStep < 1,
     },
     {
       id: "WST_02",
       label: "Workstation",
       icon: <Monitor className="h-5 w-5 text-danger" />,
-      tint: `bg-danger/15 border-danger/50 ${simulated || replayStep < 1 ? "" : "pulse-glow-red"}`,
-      muted: replayStep < 1,
-      extra: replayStep >= 1 && (
+      tint: `bg-danger/15 border-danger/50 ${simulated || (phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "WST_02") : true) : replayStep < 1) ? "" : "pulse-glow-red"}`,
+      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "WST_02") : true) : replayStep < 1,
+      extra: (!phase3Mode && replayStep >= 1) && (
         <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-danger px-2 py-0.5 text-[9px] font-bold tracking-widest text-white shadow">
           CHOKEPOINT
         </span>
@@ -440,14 +486,14 @@ function AttackPathPanel({
       label: "Service Account",
       icon: <Cog className="h-5 w-5 text-teal" />,
       tint: "bg-teal/15 border-teal/40",
-      muted: simulated || replayStep < 2,
+      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "SVC_01") : true) : (simulated || replayStep < 2),
     },
     {
       id: "SRV_01",
       label: "Server",
       icon: <Server className="h-5 w-5 text-orange" />,
       tint: "bg-orange/15 border-orange/40",
-      muted: simulated || replayStep < 3,
+      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "SRV_01") : true) : (simulated || replayStep < 3),
     },
     {
       id: "DC_01",
@@ -456,10 +502,10 @@ function AttackPathPanel({
       tint: "bg-orange/15 border-gold/50 shadow-[0_0_24px_-6px_rgba(244,201,93,0.7)]",
       extra: (
         <Crown
-          className={`pulse-gold absolute -top-4 left-1/2 h-4 w-4 -translate-x-1/2 text-gold ${simulated || replayStep < 4 ? "opacity-50" : ""}`}
+          className={`pulse-gold absolute -top-4 left-1/2 h-4 w-4 -translate-x-1/2 text-gold ${simulated || (phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "DC_01") : true) : replayStep < 4) ? "opacity-50" : ""}`}
         />
       ),
-      muted: simulated || replayStep < 4,
+      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "DC_01") : true) : (simulated || replayStep < 4),
     },
   ];
 
@@ -471,7 +517,7 @@ function AttackPathPanel({
       <div className="mb-4 flex items-start justify-between">
         <div>
           <div className="text-[10px] font-bold tracking-[0.18em] text-muted">
-            ACTIVE ATTACK PATH
+            {phase3Mode ? "SYNTHETIC ATTACK PATH" : "ACTIVE ATTACK PATH"}
           </div>
           <h2 className="mt-1 text-[16px] font-bold text-text">Attack Path Topology</h2>
         </div>
@@ -485,16 +531,71 @@ function AttackPathPanel({
         </span>
       </div>
 
-      <div className="rounded-lg border border-border-app bg-bg/60 p-6">
-        <div className="flex items-stretch justify-between gap-1">
-          {nodes.map((n, i) => (
-            <div key={n.id} className="flex flex-1 items-center">
-              <NodeBubble node={n} />
-              {i < nodes.length - 1 && (
-                <Edge severed={simulated && i === 1} fast={i === 1} active={replayStep > i} />
-              )}
-            </div>
-          ))}
+      <div className="relative rounded-lg border border-border-app bg-bg/60 p-6">
+        {phase3Mode && p3Graph && (
+          <svg className="absolute inset-0 h-full w-full pointer-events-none" style={{ zIndex: 0 }}>
+            {/* Draw custom Phase 3 edges using absolute coordinates based on flex layout */}
+            {/* Since we don't have refs to exact positions, we can use percentages for the 5-node flex layout */}
+            {p3Graph.edges.map((edge, i) => {
+              const nodeIndices: Record<string, number> = { "USR_03": 0, "WST_02": 1, "SVC_01": 2, "SRV_01": 3, "DC_01": 4 };
+              const srcIdx = nodeIndices[edge.source];
+              const tgtIdx = nodeIndices[edge.target];
+              if (srcIdx === undefined || tgtIdx === undefined) return null;
+
+              // 5 nodes means 4 spaces. Each node center is roughly at: 10%?, 30%?
+              // Actually flex is `flex-1 items-center` with `justify-between`.
+              // The nodes take up equal width fractions.
+              const getX = (idx: number) => `${10 + (idx * 20)}%`; // Approx center for 5 nodes
+
+              const isSevered = simulated && edge.source === "WST_02" && edge.target === "SRV_01";
+
+              return (
+                <line
+                  key={edge.id}
+                  x1={getX(srcIdx)}
+                  y1="50%"
+                  x2={getX(tgtIdx)}
+                  y2="50%"
+                  stroke={isSevered ? "#D93A4660" : "#ef5b6c"}
+                  strokeWidth="2"
+                  strokeDasharray={isSevered ? "6 6" : "6 4"}
+                />
+              );
+            })}
+          </svg>
+        )}
+        <div className="relative flex items-stretch justify-between gap-1 z-10">
+          {nodes.map((n, i) => {
+            let activePhase2 = replayStep > i;
+            let showEdge = true;
+            let edgeSevered = simulated && i === 1;
+            let edgeFast = i === 1;
+
+            if (phase3Mode) {
+              // In phase 3, we don't draw the standard flex edges if there's no direct connection
+              // Wait, the SVG draws the connections. We just make the flex edges transparent
+              // to keep the layout spacing correct.
+              showEdge = false;
+            }
+
+            return (
+              <div key={n.id} className={`flex ${i < nodes.length - 1 ? 'flex-1' : ''} items-center`}>
+                {n.id === "SVC_01" && phase3Mode ? (
+                  <div className="absolute left-[50%] -translate-x-1/2 -top-4">
+                    <NodeBubble node={n} />
+                    <div className="text-[9px] text-teal/70 font-bold tracking-widest text-center mt-1 uppercase">Actor</div>
+                  </div>
+                ) : (
+                  <NodeBubble node={n} />
+                )}
+                {i < nodes.length - 1 && (
+                  <div className={`flex-1 mx-1 ${showEdge ? '' : 'opacity-0'}`}>
+                    <Edge severed={edgeSevered} fast={edgeFast} active={activePhase2} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -600,6 +701,7 @@ function PlaybookPanel({
   metrics,
   canApplyRemediation,
   replayStep,
+  phase3Mode,
 }: {
   simulated: boolean;
   onApply: () => void;
@@ -607,13 +709,14 @@ function PlaybookPanel({
   isLoading: boolean;
   metrics: {
     riskScore: number;
-    blastRadius: number;
+    blastRadius: number | string;
     riskLevel: string;
     pathStatus: string;
     securityGain: number;
   };
   canApplyRemediation: boolean;
   replayStep: number;
+  phase3Mode?: boolean;
 }) {
   return (
     <section

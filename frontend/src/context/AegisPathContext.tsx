@@ -9,7 +9,7 @@
  * Chokepoint:       WST_02 → SVC_01  (severed when remediationApplied = true)
  */
 
-import { createContext, useContext, useMemo, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useCallback, useState, type ReactNode } from "react";
 import { useScenarioState } from "../hooks/useScenarioState";
 import type { ScenarioState, AuditEntry, RemediationPreview } from "../lib/types";
 
@@ -17,7 +17,7 @@ import type { ScenarioState, AuditEntry, RemediationPreview } from "../lib/types
 
 export const REMEDIATION_BUNDLE = [
   {
-    id: "patch_wst_02", // Aligned with the engine's primary fix id
+    id: "remediation:patch-wst-02", // Aligned with the engine's primary fix id
     label: "Patch WST_02 Remediation Bundle",
     description: "Apply critical patch to WST_02, isolate credentials, and rotate SVC_01 password.",
   },
@@ -90,6 +90,8 @@ interface AegisPathContextType {
   canApplyRemediation: boolean;
   isReplayComplete: boolean;
   isReplayPending: boolean;
+  phase3Mode: boolean;
+  togglePhase3Mode: () => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -99,6 +101,7 @@ const AegisPathContext = createContext<AegisPathContextType | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AegisPathProvider({ children }: { children: ReactNode }) {
+  const [phase3Mode, setPhase3Mode] = useState(false);
   const {
     scenarioState,
     isLoading,
@@ -123,7 +126,7 @@ export function AegisPathProvider({ children }: { children: ReactNode }) {
 
   const applyRemediation = useCallback(() => {
     if (isMutating) return;
-    applyRemediationApi("patch_wst_02").catch((err) => {
+    applyRemediationApi("remediation:patch-wst-02").catch((err) => {
       console.error("Failed to apply remediation:", err);
     });
   }, [isMutating, applyRemediationApi]);
@@ -180,6 +183,8 @@ export function AegisPathProvider({ children }: { children: ReactNode }) {
       canApplyRemediation,
       isReplayComplete,
       isReplayPending,
+      phase3Mode,
+      togglePhase3Mode: () => setPhase3Mode(!phase3Mode),
     }),
     [
       sessionApplied,
@@ -202,6 +207,7 @@ export function AegisPathProvider({ children }: { children: ReactNode }) {
       canApplyRemediation,
       isReplayComplete,
       isReplayPending,
+      phase3Mode,
     ],
   );
 

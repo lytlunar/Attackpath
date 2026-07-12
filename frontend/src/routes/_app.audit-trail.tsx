@@ -2,13 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Download, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useAegisPath } from "../context/AegisPathContext";
+import { usePhase3Scenario } from "../hooks/usePhase3Scenario";
 
 export const Route = createFileRoute("/_app/audit-trail")({
   component: AuditTrailPage,
 });
 
-type Result = "Success" | "Failure" | "Warning";
-type Entry = { id: string; ts: string; isoTs?: string; user: string; action: string; resource: string; ip: string; result: Result; dynamic?: boolean };
+type Result = "Success" | "Failure" | "Warning" | "Info";
+type Entry = { id: string; ts: string; isoTs?: string; user: string; action: string; resource: string; ip: string; result: Result; dynamic?: boolean; synthetic?: boolean };
 
 function formatDate(isoStr: string) {
   const d = new Date(isoStr);
@@ -28,12 +29,33 @@ const STATIC_ENTRIES: Entry[] = [
 ];
 
 function AuditTrailPage() {
-  const { remediationApplied, remediationTimestamp, dynamicAuditEntries, isLoading, isError } = useAegisPath();
+  const { remediationApplied: p2RemediationApplied, remediationTimestamp: p2Timestamp, dynamicAuditEntries, isLoading: p2Loading, isError: p2Error, phase3Mode } = useAegisPath();
+  const { state: p3State } = usePhase3Scenario();
 
   const [user, setUser] = useState("all");
   const [action, setAction] = useState("all");
 
+  const remediationApplied = phase3Mode ? p3State.remediation.applied : p2RemediationApplied;
+  const isError = phase3Mode ? false : p2Error;
+  const isLoading = phase3Mode ? false : p2Loading;
+
   const allEntries: Entry[] = useMemo(() => {
+    if (phase3Mode) {
+      const p3Mapped: Entry[] = p3State.auditEntries.map(e => ({
+         id: e.id,
+         ts: formatDate(e.timestamp),
+         isoTs: e.timestamp,
+         user: "Demo Analyst",
+         action: e.title,
+         resource: e.description,
+         ip: "session-local",
+         result: "Info" as Result,
+         dynamic: true,
+         synthetic: true
+      }));
+      return p3Mapped;
+    }
+
     const dynamicMapped: Entry[] = (dynamicAuditEntries || []).map(e => ({
       id: e.id,
       ts: formatDate(e.timestamp),
@@ -59,7 +81,7 @@ function AuditTrailPage() {
     const staticRemaining = STATIC_ENTRIES.filter(e => !dynamicIds.has(e.id));
 
     return [...dynamicMapped, ...staticRemaining];
-  }, [dynamicAuditEntries]);
+  }, [dynamicAuditEntries, phase3Mode, p3State.auditEntries]);
 
   const users = useMemo(() => ["all", ...Array.from(new Set(allEntries.map((e) => e.user)))], [allEntries]);
   const actions = useMemo(() => ["all", ...Array.from(new Set(allEntries.map((e) => e.action)))], [allEntries]);
@@ -76,14 +98,20 @@ function AuditTrailPage() {
         </div>
       )}
 
+      {/* Mode Header */}
+      <div className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-[14px] font-bold ${phase3Mode ? "border-teal/40 bg-teal/10 text-teal" : "border-border-app bg-panel text-text"}`}>
+        <ShieldCheck className="h-5 w-5" />
+        {phase3Mode ? "Synthetic Ingestion Audit" : "Replay Audit"}
+      </div>
+
       {/* Dynamic alert banner when remediation applied */}
       {remediationApplied && !isError && (
         <div className="fade-up flex items-center gap-3 rounded-lg border border-green/40 bg-green/8 px-4 py-3 text-[12.5px] font-semibold text-green">
           <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-          Remediation simulation logged · WST_02 Remediation Bundle applied
-          {remediationTimestamp && (
+          {phase3Mode ? "Synthetic Simulation action logged · Remediation applied to model" : "Remediation simulation logged · WST_02 Remediation Bundle applied"}
+          {p2Timestamp && !phase3Mode && (
             <span className="ml-auto font-mono text-[11px] text-green/70">
-              {formatDate(remediationTimestamp)}
+              {formatDate(p2Timestamp)}
             </span>
           )}
         </div>
@@ -127,19 +155,22 @@ function AuditTrailPage() {
               <tr
                 key={r.id}
                 className={`border-t border-border-app hover:bg-panel-2/60 transition-colors ${
-                  r.dynamic
+                  r.dynamic || r.synthetic
                     ? "bg-green/5 ring-1 ring-inset ring-green/20"
                     : i % 2 ? "bg-bg/30" : ""
                 }`}
               >
                 <td className="px-4 py-2.5 font-mono text-muted">
                   {r.ts}
-                  {r.dynamic && (
+                  {r.dynamic && !r.synthetic && (
                     <span className="ml-2 rounded-full bg-green/20 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-green">LIVE</span>
+                  )}
+                  {r.synthetic && (
+                    <span className="ml-2 rounded-full bg-teal/20 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-teal">SYNTHETIC</span>
                   )}
                 </td>
                 <td className="px-4 py-2.5 text-text">{r.user}</td>
-                <td className={`px-4 py-2.5 font-medium ${r.dynamic ? "text-green" : "text-text"}`}>{r.action}</td>
+                <td className={`px-4 py-2.5 font-medium ${r.synthetic ? "text-teal" : (r.dynamic ? "text-green" : "text-text")}`}>{r.action}</td>
                 <td className="px-4 py-2.5 text-muted">{r.resource}</td>
                 <td className="px-4 py-2.5 font-mono text-muted">{r.ip}</td>
                 <td className="px-4 py-2.5">
@@ -148,6 +179,8 @@ function AuditTrailPage() {
                       ? "bg-green/15 text-green"
                       : r.result === "Warning"
                       ? "bg-orange/15 text-orange"
+                      : r.result === "Info"
+                      ? "bg-teal/15 text-teal"
                       : "bg-danger/15 text-danger"
                   }`}>
                     {r.result}

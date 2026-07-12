@@ -3,6 +3,7 @@ import { useState } from "react";
 import { User, Monitor, Cog, Server, Building2, Crown, ShieldCheck, Database, Radar } from "lucide-react";
 import { useAegisPath } from "../context/AegisPathContext";
 import { AegisPathModel } from "../data/aegisPathModel";
+import { usePhase3Scenario } from "../hooks/usePhase3Scenario";
 
 export const Route = createFileRoute("/_app/attack-graph")({
   component: AttackGraphPage,
@@ -30,25 +31,48 @@ function getNodeColor(id: string, role: string) {
 }
 
 function AttackGraphPage() {
-  const { remediationApplied, applyRemediation, resetRemediation, scenarioState, isLoading, isError, isMutating } = useAegisPath();
+  const { remediationApplied: p2RemediationApplied, applyRemediation: p2ApplyRemediation, resetRemediation: p2ResetRemediation, scenarioState, isLoading, isError, isMutating, phase3Mode } = useAegisPath();
+  const { state: p3State, isPending: p3Pending, processNextEvent, resetPhase3, applyRemediation: p3ApplyRemediation, resetRemediation: p3ResetRemediation, canProcessNext } = usePhase3Scenario();
+
   const [selectedId, setSelectedId] = useState<string>("WST_02");
 
-  const hasValidState = !!scenarioState;
-  const isPending = isLoading && !hasValidState;
-  const isNeutral = isPending || (isError && !hasValidState);
+  const isNeutral = phase3Mode ? (p3Pending || !p3State.graph) : (isLoading || isError || !scenarioState);
+
+  const remediationApplied = phase3Mode ? p3State.remediation.applied : p2RemediationApplied;
 
   const chokepointEdgeId = scenarioState?.chokepointEdge?.id || "";
   const chokepointEdge = scenarioState?.edges.find(e => e.id === chokepointEdgeId);
-  const chokepointSource = chokepointEdge ? chokepointEdge.source : "";
-  const chokepointText = chokepointEdge ? `${chokepointEdge.source} → ${chokepointEdge.target}` : "";
+  const chokepointSource = phase3Mode ? "WST_02" : (chokepointEdge ? chokepointEdge.source : "");
+  const chokepointText = phase3Mode ? "WST_02 → SRV_01 (and Lateral)" : (chokepointEdge ? `${chokepointEdge.source} → ${chokepointEdge.target}` : "");
 
   const sel = AegisPathModel.graphNodes.find(n => n.id === selectedId);
   const selNodeAnalysis = scenarioState?.nodes.find(n => n.id === selectedId);
-  const isMuted = isNeutral ? false : (selNodeAnalysis ? !selNodeAnalysis.reachableViaActivePath : false);
+
+  let isMuted = false;
+  if (!isNeutral) {
+    if (phase3Mode) {
+      isMuted = p3State.graph ? !p3State.graph.nodes.includes(selectedId) : true;
+    } else {
+      isMuted = selNodeAnalysis ? !selNodeAnalysis.reachableViaActivePath : false;
+    }
+  }
 
   return (
     <div className="space-y-4">
-      {isError && (
+      {phase3Mode && (
+        <div className="rounded-lg border border-teal/40 bg-teal/10 p-3 flex justify-between items-center text-sm">
+          <div className="text-teal font-semibold">
+            <span className="bg-teal text-bg px-1.5 py-0.5 rounded text-[10px] mr-2">PHASE 3</span>
+            Synthetic Security Simulation
+          </div>
+          <div className="flex gap-2">
+             <button onClick={resetPhase3} className="px-3 py-1 rounded bg-panel-2 border border-border-app hover:bg-panel text-xs">Reset Demo</button>
+             <button disabled={!canProcessNext || p3Pending} onClick={processNextEvent} className="px-3 py-1 rounded bg-teal/20 border border-teal/50 hover:bg-teal/30 text-teal text-xs disabled:opacity-50">Process Next Synthetic Event</button>
+          </div>
+        </div>
+      )}
+
+      {isError && !phase3Mode && (
         <div className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm text-danger font-semibold">
           Error loading analysis data. {hasValidState ? "Preserving last valid graph state." : "Showing neutral topology."}
         </div>
@@ -118,14 +142,34 @@ function AttackGraphPage() {
                 
                 if (!A || !B) return null;
 
-                const analysisEdge = scenarioState?.edges.find(e => e.id === edge.id);
+                const edgeId = edge.id;
                 
-                const isContext = isNeutral ? true : (analysisEdge ? analysisEdge.role === "context" : true);
-                const isChokepoint = isNeutral ? false : (analysisEdge ? analysisEdge.isChokepoint : false);
-                const isSevered = isNeutral ? false : (analysisEdge ? analysisEdge.severed : false);
-                
-                const sourceNodeAnalysis = scenarioState?.nodes.find(n => n.id === edge.source);
-                const isDownstream = isNeutral ? false : (sourceNodeAnalysis ? !sourceNodeAnalysis.reachableViaActivePath : false);
+                let isContext = true;
+                let isChokepoint = false;
+                let isSevered = false;
+                let isDownstream = false;
+
+                if (!isNeutral) {
+                  if (phase3Mode) {
+                     const p3Edge = p3State.graph?.edges.find(e => e.id === edgeId);
+                     isContext = !p3Edge; // Not a detection-supported edge
+                     isSevered = false; // We just remove the edge if severed, or keep it muted. Wait, Phase 3 remediation removes the edge from the graph entirely.
+                     if (!isContext && remediationApplied) {
+                        // If it's WST_02 -> SRV_01, we want to visually show it severed
+                        if (edge.source === "WST_02" && edge.target === "SRV_01") {
+                           isSevered = true;
+                           isContext = false;
+                        }
+                     }
+                  } else {
+                    const analysisEdge = scenarioState?.edges.find(e => e.id === edgeId);
+                    isContext = analysisEdge ? analysisEdge.role === "context" : true;
+                    isChokepoint = analysisEdge ? analysisEdge.isChokepoint : false;
+                    isSevered = analysisEdge ? analysisEdge.severed : false;
+                    const sourceNodeAnalysis = scenarioState?.nodes.find(n => n.id === edge.source);
+                    isDownstream = sourceNodeAnalysis ? !sourceNodeAnalysis.reachableViaActivePath : false;
+                  }
+                }
                 
                 const isDimmedCritical = isSevered || isDownstream;
 
@@ -185,14 +229,28 @@ function AttackGraphPage() {
             </svg>
 
             {AegisPathModel.graphNodes.map((n) => {
-              const analysisNode = scenarioState?.nodes.find(an => an.id === n.id);
-              
-              const isReachable = isNeutral ? true : (analysisNode ? analysisNode.reachableViaActivePath : true);
+              let isReachable = true;
+              let isContext = true;
+              let isCritical = false;
+              let isChokepointNode = false;
+
+              if (!isNeutral) {
+                if (phase3Mode) {
+                  const p3NodeHasEdges = p3State.graph?.edges.some(e => e.source === n.id || e.target === n.id);
+                  isReachable = p3NodeHasEdges ? true : false;
+                  isContext = !p3State.graph?.nodes.includes(n.id);
+                  isCritical = !isContext;
+                  isChokepointNode = n.id === "WST_02";
+                } else {
+                  const analysisNode = scenarioState?.nodes.find(an => an.id === n.id);
+                  isReachable = analysisNode ? analysisNode.reachableViaActivePath : true;
+                  isContext = analysisNode ? analysisNode.role === "context" : true;
+                  isCritical = analysisNode ? analysisNode.role === "critical" : false;
+                  isChokepointNode = analysisNode ? (n.id === chokepointSource) : false;
+                }
+              }
+
               const nodeIsMutedCritical = !isReachable;
-              
-              const isContext = isNeutral ? true : (analysisNode ? analysisNode.role === "context" : true);
-              const isCritical = isNeutral ? false : (analysisNode ? analysisNode.role === "critical" : false);
-              const isChokepointNode = isNeutral ? false : (analysisNode ? (n.id === chokepointSource) : false);
               const offset = isContext ? 24 : 32;
 
               return (
@@ -270,16 +328,16 @@ function AttackGraphPage() {
                   {/* Remediation CTA */}
                   <div className="mt-6 rounded-lg border border-border-app bg-panel-2 p-4 text-center">
                     <button 
-                      onClick={() => applyRemediation()}
-                      disabled={isMutating}
+                      onClick={() => phase3Mode ? p3ApplyRemediation("remediation:patch-wst-02") : p2ApplyRemediation()}
+                      disabled={isMutating || p3Pending}
                       className="w-full flex items-center justify-center gap-2 rounded border border-danger/50 bg-danger/20 px-4 py-2.5 text-[12px] font-bold text-danger transition-colors hover:bg-danger/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isMutating ? "Applying..." : "Apply to Attack Model"}
+                      {isMutating || p3Pending ? "Applying..." : "Apply to Attack Model"}
                     </button>
                     <div className="mt-2.5 text-[10.5px] leading-relaxed text-muted">
                       Sever the chokepoint edge to isolate downstream nodes and disrupt the attack path.
                       <div className="mt-1 font-semibold tracking-wider text-danger/80">
-                        AFFECTS GLOBAL STATE
+                        {phase3Mode ? "AFFECTS DIGITAL SYNTHETIC MODEL" : "AFFECTS GLOBAL STATE"}
                       </div>
                     </div>
                   </div>
@@ -293,11 +351,11 @@ function AttackGraphPage() {
                   </div>
                   <div className="mt-6 rounded-lg border border-border-app bg-panel-2 p-4 text-center">
                     <button 
-                      onClick={() => resetRemediation()}
-                      disabled={isMutating}
+                      onClick={() => phase3Mode ? p3ResetRemediation() : p2ResetRemediation()}
+                      disabled={isMutating || p3Pending}
                       className="w-full flex items-center justify-center gap-2 rounded border border-border-app bg-bg px-4 py-2.5 text-[12px] font-bold text-text transition-colors hover:bg-panel disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isMutating ? "Resetting..." : "Reset Simulation"}
+                      {isMutating || p3Pending ? "Resetting..." : "Reset Simulation"}
                     </button>
                   </div>
                 </>

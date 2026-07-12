@@ -3,6 +3,7 @@ import { useState, Fragment } from "react";
 import { ChevronRight, ChevronDown, RotateCcw, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useAegisPath } from "../context/AegisPathContext";
 import { AegisPathModel } from "../data/aegisPathModel";
+import { usePhase3Scenario } from "../hooks/usePhase3Scenario";
 
 export const Route = createFileRoute("/_app/threat-events")({
   component: ThreatEventsPage,
@@ -27,50 +28,77 @@ const sevTone: Record<string, string> = {
 function ThreatEventsPage() {
   const {
     scenarioState,
-    replayStep,
-    advanceReplay,
-    restartReplay,
-    isReplayPending,
-    remediationApplied,
+    replayStep: p2ReplayStep,
+    advanceReplay: p2AdvanceReplay,
+    restartReplay: p2RestartReplay,
+    isReplayPending: p2Pending,
+    remediationApplied: p2RemediationApplied,
+    phase3Mode,
   } = useAegisPath();
+
+  const {
+    state: p3State,
+    isPending: p3Pending,
+    processNextEvent: p3Advance,
+    resetPhase3: p3Reset,
+  } = usePhase3Scenario();
 
   const [filter, setFilter] = useState<"All" | Severity>("All");
   const [open, setOpen] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const activeEvents = scenarioState?.activeEvents || [];
+  const activeEvents = phase3Mode ? [] : (scenarioState?.activeEvents || []);
+  const p3Detections = phase3Mode ? (p3State.remediation.applied ? p3State.remediation.result?.after.detections || [] : p3State.detections || []) : [];
 
-  const rows = activeEvents.map((evt) => {
-    const mitreMapping = AegisPathModel.mitreMappings[nodeToMitreKey[evt.nodeId]];
-    return {
-      id: evt.id,
-      severity: evt.severity as Severity,
-      type:
-        evt.id === "evt_001"
-          ? "Initial Access"
-          : evt.id === "evt_002"
-            ? "Credential Dumping"
-            : evt.id === "evt_003"
-              ? "Lateral Movement"
-              : "Domain Escalation",
-      source: evt.sourceNodeId || evt.source,
-      target: evt.targetNodeId || evt.nodeId,
-      ts: `Jul 5, 2026 ${evt.timestamp.substring(11, 16)} UTC`,
-      status: "Investigating" as const,
-      detail: evt.message,
-      mitreId: mitreMapping ? `${mitreMapping.technique} — ${mitreMapping.name}` : "Unknown",
-    };
-  });
+  const rows = phase3Mode
+    ? p3Detections.map((d) => {
+        return {
+          id: d.id,
+          severity: d.severity.charAt(0).toUpperCase() + d.severity.slice(1) as Severity,
+          type: d.title,
+          source: d.graphHints?.sourceEntityId || "Unknown",
+          target: d.graphHints?.targetEntityId || "Unknown",
+          ts: "Synthetic Mode",
+          status: "Investigating" as const,
+          detail: d.description,
+          mitreId: `${d.mitre.techniques.map(t => t.id).join(", ")} — ${d.mitre.tactic.name}`,
+          evidence: d.evidence,
+        };
+      })
+    : activeEvents.map((evt) => {
+      const mitreMapping = AegisPathModel.mitreMappings[nodeToMitreKey[evt.nodeId]];
+      return {
+        id: evt.id,
+        severity: evt.severity as Severity,
+        type:
+          evt.id === "evt_001"
+            ? "Initial Access"
+            : evt.id === "evt_002"
+              ? "Credential Dumping"
+              : evt.id === "evt_003"
+                ? "Lateral Movement"
+                : "Domain Escalation",
+        source: evt.sourceNodeId || evt.source,
+        target: evt.targetNodeId || evt.nodeId,
+        ts: `Jul 5, 2026 ${evt.timestamp.substring(11, 16)} UTC`,
+        status: "Investigating" as const,
+        detail: evt.message,
+        mitreId: mitreMapping ? `${mitreMapping.technique} — ${mitreMapping.name}` : "Unknown",
+      };
+    });
 
   const filteredRows = rows.filter((e) => filter === "All" || e.severity === filter);
 
-  const isCompleted = scenarioState?.replay.status === "Completed" || replayStep === 4;
+  const isCompleted = phase3Mode ? p3State.events.length === 4 : (scenarioState?.replay.status === "Completed" || p2ReplayStep === 4);
+  const replayStep = phase3Mode ? p3State.events.length : p2ReplayStep;
+  const isReplayPending = phase3Mode ? p3Pending : p2Pending;
+  const remediationApplied = phase3Mode ? p3State.remediation.applied : p2RemediationApplied;
 
   const handleNextAction = () => {
     if (isReplayPending) return;
     setErrorMsg(null);
     try {
-      advanceReplay();
+      if (phase3Mode) { p3Advance(); } else { p2AdvanceReplay(); }
     } catch (err) {
       setErrorMsg("The replay action could not be completed. Please try again.");
     }
@@ -81,7 +109,7 @@ function ThreatEventsPage() {
     setErrorMsg(null);
     setOpen(null);
     try {
-      await restartReplay();
+      if (phase3Mode) { await p3Reset(); } else { await p2RestartReplay(); }
     } catch (err) {
       setErrorMsg("The replay action could not be completed. Please try again.");
     }
@@ -99,14 +127,20 @@ function ThreatEventsPage() {
     <div className="space-y-4">
       {/* Replay Controller */}
       <div className="flex flex-col gap-3 rounded-xl border border-border-app bg-panel p-4">
+        {phase3Mode && (
+          <div className="rounded border border-teal/40 bg-teal/10 p-2 mb-2 text-xs font-semibold text-teal flex items-center">
+            <span className="bg-teal text-bg px-1.5 py-0.5 rounded text-[9px] mr-2">PHASE 3</span>
+            Synthetic Ingestion Mode active. Actions affect the digital simulation model.
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex flex-col">
               <span className="text-[11.5px] uppercase tracking-wider text-muted font-bold">
-                Replay Status
+                {phase3Mode ? "Synthetic Stream" : "Replay Status"}
               </span>
               <span className="text-[14px] font-semibold text-text" aria-live="polite">
-                {scenarioState?.replay.status || "Loading"}
+                {phase3Mode ? (isCompleted ? "Ingestion Complete" : "Awaiting Events") : (scenarioState?.replay.status || "Loading")}
               </span>
             </div>
             <div className="h-8 w-[1px] bg-border-app" />
@@ -188,6 +222,35 @@ function ThreatEventsPage() {
           {filteredRows.length} active events
         </div>
       </div>
+
+      {phase3Mode && p3State.rejected && p3State.rejected.length > 0 && (
+        <div className="rounded-xl border border-danger/40 bg-panel overflow-hidden">
+          <div className="bg-danger/10 px-4 py-2 border-b border-danger/20 flex items-center gap-2 text-danger">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="text-[12.5px] font-bold">Rejected Synthetic Events ({p3State.rejected.length})</span>
+          </div>
+          <table className="w-full text-left text-[12px]">
+            <thead className="bg-panel-2 text-[10px] uppercase tracking-wider text-muted">
+              <tr>
+                <th className="px-4 py-2">Index</th>
+                <th className="px-4 py-2">Event ID</th>
+                <th className="px-4 py-2">Field Path</th>
+                <th className="px-4 py-2">Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {p3State.rejected.map((rej, i) => (
+                <tr key={i} className="border-t border-border-app">
+                  <td className="px-4 py-2 font-mono text-muted">{rej.index}</td>
+                  <td className="px-4 py-2 font-mono text-text">{rej.eventId || "—"}</td>
+                  <td className="px-4 py-2 font-mono text-orange">{rej.errors.map(e => e.path).join(", ")}</td>
+                  <td className="px-4 py-2 text-danger/80">{rej.errors.map(e => e.message).join(" | ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-border-app bg-panel">
@@ -272,6 +335,23 @@ function ThreatEventsPage() {
                             <span className="font-semibold text-text">MITRE ATT&CK:</span>{" "}
                             <span className="font-mono text-teal">{r.mitreId}</span>
                           </div>
+                          {phase3Mode && (r as any).evidence && (
+                            <div className="mt-3">
+                              <span className="font-semibold text-text">Evidence:</span>
+                              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {((r as any).evidence as import("../lib/detectionRules").DetectionEvidence[]).map((ev, idx) => (
+                                  <div key={idx} className="bg-panel rounded border border-border-app p-2 text-[11px]">
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-bold text-text uppercase tracking-wider">{ev.label}</span>
+                                      <span className="font-mono text-muted/70">{ev.fieldPath}</span>
+                                    </div>
+                                    <div className="font-mono text-teal break-all">{String(ev.value)}</div>
+                                    <div className="text-muted mt-1">Source Event: <span className="font-mono">{ev.sourceEventId}</span></div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}

@@ -13,6 +13,29 @@ import {
   ChevronRight,
 } from "lucide-react";
 import aegisLogo from "@/assets/aegispath-logo.png";
+import { useAegisPath } from "../context/AegisPathContext";
+
+function Phase3Toggle() {
+  const { phase3Mode, togglePhase3Mode } = useAegisPath();
+  return (
+    <button
+      onClick={togglePhase3Mode}
+      className={`w-full flex items-center justify-between rounded-md border p-2 text-left transition-colors ${
+        phase3Mode
+          ? "border-teal/50 bg-teal/10 text-teal"
+          : "border-border-app bg-panel-2 text-muted hover:border-border-app/80 hover:text-text"
+      }`}
+    >
+      <div className="flex flex-col">
+        <span className="text-[11px] font-bold tracking-wider">SYNTHETIC SIMULATION</span>
+        <span className="text-[9.5px] opacity-80">Phase 3 Ingestion Mode</span>
+      </div>
+      <div className={`h-3 w-5 rounded-full border border-current p-0.5 transition-colors ${phase3Mode ? "bg-teal/20" : "bg-bg"}`}>
+        <div className={`h-1.5 w-1.5 rounded-full bg-current transition-transform ${phase3Mode ? "translate-x-2" : "translate-x-0"}`} />
+      </div>
+    </button>
+  );
+}
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -145,6 +168,11 @@ function Sidebar({ pathname }: { pathname: string }) {
           );
         })}
       </nav>
+
+      {/* Mode Switcher */}
+      <div className="border-t border-border-app p-3">
+        <Phase3Toggle />
+      </div>
 
       {/* Threat Intel widget */}
       <div className="border-t border-border-app p-3">

@@ -5,12 +5,18 @@ export const Route = createFileRoute("/_app/intelligence-brief")({
 });
 
 import { useAegisPath } from "../context/AegisPathContext";
+import { usePhase3Scenario } from "../hooks/usePhase3Scenario";
 
 function IntelligenceBriefPage() {
-  const { scenarioState, isLoading, isError, error, replayStep, remediationApplied } =
+  const { scenarioState, isLoading: p2Loading, isError: p2Error, error: p2Err, replayStep: p2ReplayStep, remediationApplied: p2RemediationApplied, phase3Mode } =
     useAegisPath();
+  const { state: p3State, isPending: p3Loading } = usePhase3Scenario();
 
-  if (isLoading || !scenarioState) {
+  const isLoading = phase3Mode ? p3Loading : p2Loading;
+  const isError = phase3Mode ? false : p2Error;
+  const error = phase3Mode ? null : p2Err;
+
+  if (isLoading || (!phase3Mode && !scenarioState)) {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-teal/40 bg-teal/8 px-4 py-3">
         <span className="text-[12.5px] font-semibold text-teal">Loading incident report...</span>
@@ -28,7 +34,23 @@ function IntelligenceBriefPage() {
     );
   }
 
-  const incident = scenarioState.incidentReport;
+  const incident = phase3Mode ? (p3State.remediation.applied ? p3State.remediation.result?.after.incidentReport : p3State.incidentReport) : scenarioState?.incidentReport;
+  const remediationApplied = phase3Mode ? p3State.remediation.applied : p2RemediationApplied;
+  const replayStep = phase3Mode ? p3State.events.length : p2ReplayStep;
+
+  if (!incident && phase3Mode) {
+      return (
+         <div className="space-y-4">
+           <div className="rounded border border-teal/40 bg-teal/10 p-3 text-sm font-semibold text-teal flex items-center">
+             <span className="bg-teal text-bg px-1.5 py-0.5 rounded text-[10px] mr-2">PHASE 3</span>
+             Synthetic Security Simulation
+           </div>
+           <div className="flex items-center gap-3 rounded-lg border border-border-app bg-panel-2 px-4 py-3">
+             <span className="text-[12.5px] font-semibold text-muted">Awaiting synthetic event ingestion...</span>
+           </div>
+         </div>
+      );
+  }
 
   const reportStatus = remediationApplied
     ? "Threat Contained"
@@ -39,23 +61,27 @@ function IntelligenceBriefPage() {
         : "Investigation Active";
 
   let summaryText = "";
-  if (replayStep === 0) {
-    summaryText =
-      "No threat events processed. Incident progression not confirmed. Awaiting event ingestion.";
-  } else if (remediationApplied) {
-    summaryText =
-      "Patch WST_02 severed the chokepoint. Previously observed events remain historical facts. Onward propagation is disrupted and the threat is contained.";
-  } else if (replayStep === 1) {
-    summaryText = "Suspicious activity links USR_03 to WST_02. Investigation remains incomplete.";
-  } else if (replayStep === 2) {
-    summaryText =
-      "Progression through WST_02 → SVC_01 is confirmed. Chokepoint is identified and remediation is available.";
-  } else if (replayStep === 3) {
-    summaryText =
-      "Lateral movement through SRV_01 is confirmed. DC_01 has not yet been reached. Current risk is Critical.";
-  } else if (replayStep === 4) {
-    summaryText =
-      "Full canonical attack path is confirmed. DC_01 was reached. The controlling chokepoint remains WST_02 → SVC_01.";
+  if (phase3Mode) {
+     summaryText = incident?.executiveSummary || "No summary available.";
+  } else {
+    if (replayStep === 0) {
+      summaryText =
+        "No threat events processed. Incident progression not confirmed. Awaiting event ingestion.";
+    } else if (remediationApplied) {
+      summaryText =
+        "Patch WST_02 severed the chokepoint. Previously observed events remain historical facts. Onward propagation is disrupted and the threat is contained.";
+    } else if (replayStep === 1) {
+      summaryText = "Suspicious activity links USR_03 to WST_02. Investigation remains incomplete.";
+    } else if (replayStep === 2) {
+      summaryText =
+        "Progression through WST_02 → SVC_01 is confirmed. Chokepoint is identified and remediation is available.";
+    } else if (replayStep === 3) {
+      summaryText =
+        "Lateral movement through SRV_01 is confirmed. DC_01 has not yet been reached. Current risk is Critical.";
+    } else if (replayStep === 4) {
+      summaryText =
+        "Full canonical attack path is confirmed. DC_01 was reached. The controlling chokepoint remains WST_02 → SVC_01.";
+    }
   }
 
   return (
@@ -127,7 +153,7 @@ function IntelligenceBriefPage() {
                 <dt className="text-muted">Result</dt>
                 <dd className="col-span-2 text-text">Disrupted</dd>
                 <dt className="text-muted">Security Gain</dt>
-                <dd className="col-span-2 text-green font-bold">+{scenarioState.securityGain}</dd>
+                <dd className="col-span-2 text-green font-bold">+{phase3Mode ? (p3State.remediation.result?.after.priority.score ? (p3State.priority.score - p3State.remediation.result.after.priority.score) : 0) : scenarioState?.securityGain}</dd>
               </>
             )}
           </dl>
@@ -135,14 +161,14 @@ function IntelligenceBriefPage() {
 
         <Section title="Attack Timeline" eyebrow="TIMELINE">
           <ol className="relative ml-3 border-l border-border-app">
-            {scenarioState.activeEvents.length > 0 ? (
-              scenarioState.activeEvents.map((t, i) => (
+            {(phase3Mode ? p3State.events.length > 0 : scenarioState!.activeEvents.length > 0) ? (
+              (phase3Mode ? p3State.events : scenarioState!.activeEvents).map((t, i) => (
                 <li key={t.id} className="mb-4 ml-4">
                   <span
                     className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full shadow-[0_0_10px_currentColor] ${i === 1 ? "bg-danger text-danger" : "bg-teal text-teal"}`}
                   />
                   <div className="font-mono text-[11px] text-muted">
-                    {new Date(t.timestamp).toLocaleString(undefined, {
+                    {new Date(phase3Mode ? new Date().toISOString() : t.timestamp).toLocaleString(undefined, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -152,7 +178,7 @@ function IntelligenceBriefPage() {
                     })}
                   </div>
                   <div className="text-[12.5px] text-text">
-                    {t.message}{" "}
+                    {phase3Mode ? t.id : (t as any).message}{" "}
                     {i === 1 && (
                       <span className="ml-1 text-[10px] font-bold text-danger uppercase">
                         [CHOKEPOINT]
@@ -160,7 +186,7 @@ function IntelligenceBriefPage() {
                     )}
                   </div>
                   <div className="mt-1 text-[11px] text-muted">
-                    Source: {t.source} · Node: {t.nodeId}
+                    {phase3Mode ? `Raw Synthetic Event · ${t.id}` : `Source: ${(t as any).source} · Node: ${(t as any).nodeId}`}
                   </div>
                 </li>
               ))
@@ -188,21 +214,21 @@ function IntelligenceBriefPage() {
             </tr>
           </thead>
           <tbody>
-            {scenarioState.activeDetections.map((det) => (
-              <tr key={det.detectionId} className="border-t border-border-app">
-                <td className="py-2 text-muted">{det.detectionType}</td>
-                <td className="py-2 font-mono text-text">{det.technique}</td>
-                <td className="py-2 font-mono text-text">{det.nodeId}</td>
+            {(phase3Mode ? (p3State.remediation.applied ? p3State.remediation.result?.after.detections || [] : p3State.detections || []) : scenarioState!.activeDetections).map((det) => (
+              <tr key={phase3Mode ? det.id : (det as any).detectionId} className="border-t border-border-app">
+                <td className="py-2 text-muted">{phase3Mode ? det.title : (det as any).detectionType}</td>
+                <td className="py-2 font-mono text-text">{phase3Mode ? det.classification.mitreAttackId : (det as any).technique}</td>
+                <td className="py-2 font-mono text-text">{phase3Mode ? det.graphHints.targetEntityId : (det as any).nodeId}</td>
                 <td className="py-2">
                   <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${det.confidence === "High" ? "bg-danger/15 text-danger" : "bg-orange/15 text-orange"}`}
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${(phase3Mode ? det.classification.confidence : (det as any).confidence) === "High" ? "bg-danger/15 text-danger" : "bg-orange/15 text-orange"}`}
                   >
-                    {det.confidence}
+                    {phase3Mode ? det.classification.confidence : (det as any).confidence}
                   </span>
                 </td>
               </tr>
             ))}
-            {scenarioState.activeDetections.length === 0 && (
+            {(phase3Mode ? p3State.events.length === 0 : scenarioState!.activeDetections.length === 0) && (
               <tr>
                 <td colSpan={4} className="py-4 text-center text-muted">
                   No evidence processed

@@ -97,9 +97,9 @@ function IntelligenceBriefPage() {
           <div className="text-right">
             <div className="text-[10px] font-bold tracking-[0.18em] text-muted">RISK RATING</div>
             <div
-              className={`mt-1 text-[13px] font-bold ${scenarioState.score.label === "Critical" || scenarioState.score.label === "High" ? "text-danger" : "text-orange"}`}
+              className={`mt-1 text-[13px] font-bold ${(phase3Mode ? p3State.priority?.band : scenarioState?.score.label) === "Critical" || (phase3Mode ? p3State.priority?.band : scenarioState?.score.label) === "High" ? "text-danger" : "text-orange"}`}
             >
-              {scenarioState.score.label} ({scenarioState.score.total})
+              {phase3Mode ? (p3State.priority?.band ?? "Not calculated") : `${scenarioState?.score.label} (${scenarioState?.score.total})`}
             </div>
           </div>
           <div className="text-right">
@@ -107,7 +107,7 @@ function IntelligenceBriefPage() {
             <div
               className={`mt-1 text-[13px] font-bold ${remediationApplied ? "text-green" : replayStep === 0 ? "text-muted" : "text-danger"}`}
             >
-              {scenarioState.pathStatus}
+              {phase3Mode ? (p3State.priority?.band ? (p3State.remediation.applied ? "Disrupted" : "Active") : "Pending") : scenarioState?.pathStatus}
             </div>
           </div>
           <div className="text-right">
@@ -153,7 +153,7 @@ function IntelligenceBriefPage() {
                 <dt className="text-muted">Result</dt>
                 <dd className="col-span-2 text-text">Disrupted</dd>
                 <dt className="text-muted">Security Gain</dt>
-                <dd className="col-span-2 text-green font-bold">+{phase3Mode ? (p3State.remediation.result?.after.priority.score ? (p3State.priority.score - p3State.remediation.result.after.priority.score) : 0) : scenarioState?.securityGain}</dd>
+                <dd className="col-span-2 text-green font-bold">+{phase3Mode ? (p3State.remediation.result?.after.priority.score !== undefined && p3State.priority?.score !== undefined ? (p3State.priority.score - p3State.remediation.result.after.priority.score) : 0) : scenarioState?.securityGain}</dd>
               </>
             )}
           </dl>

@@ -60,8 +60,8 @@ function RiskSimulationPage() {
   const remediationTimestamp = phase3Mode ? undefined : p2Timestamp;
   const canApplyRemediation = phase3Mode ? (p3State.events.length >= 2) : p2CanApply;
 
-  const currentScore = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.score : p3State.priority.score) : p2Metrics.riskScore;
-  const currentBand = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.band : p3State.priority.band) : p2Metrics.riskLevel;
+  const currentScore = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.score : p3State.priority?.score) ?? 0 : p2Metrics.riskScore;
+  const currentBand = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.band : p3State.priority?.band) ?? "Low" : p2Metrics.riskLevel;
 
   return (
     <div className="space-y-4">

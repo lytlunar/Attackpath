@@ -17,7 +17,7 @@ import type { ScenarioState, AuditEntry, RemediationPreview } from "../lib/types
 
 export const REMEDIATION_BUNDLE = [
   {
-    id: "remediation:patch-wst-02", // Aligned with the engine's primary fix id
+    id: "patch_wst_02", // Preserved for Phase 2 API expectations
     label: "Patch WST_02 Remediation Bundle",
     description: "Apply critical patch to WST_02, isolate credentials, and rotate SVC_01 password.",
   },
@@ -126,7 +126,7 @@ export function AegisPathProvider({ children }: { children: ReactNode }) {
 
   const applyRemediation = useCallback(() => {
     if (isMutating) return;
-    applyRemediationApi("remediation:patch-wst-02").catch((err) => {
+    applyRemediationApi("patch_wst_02").catch((err) => {
       console.error("Failed to apply remediation:", err);
     });
   }, [isMutating, applyRemediationApi]);

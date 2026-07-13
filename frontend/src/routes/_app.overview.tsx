@@ -92,6 +92,7 @@ function OverviewPage() {
 
   const currentScore = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.score : p3State.priority.score) || 0 : p2Metrics.riskScore;
   const currentBand = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.band : p3State.priority.band) || "Low" : p2Metrics.riskLevel;
+  const currentSecurityGain = phase3Mode ? (remediationApplied && p3State.remediation.result?.after.priority.score !== undefined && p3State.priority?.score !== undefined ? (p3State.priority.score - p3State.remediation.result.after.priority.score) : 0) : p2Metrics.securityGain;
 
   const riskScore = useCountTo(currentScore);
   const blastRadius = useCountTo(p2Metrics.blastRadius); // We keep blast radius from Phase 2 since it's not projected in Phase 3
@@ -301,7 +302,7 @@ function OverviewPage() {
               <span className="text-[42px] leading-none font-bold text-muted">—</span>
             ) : remediationApplied ? (
               <span className="text-[42px] leading-none font-bold text-green tabular-nums">
-                +{metrics.securityGain}
+                +{currentSecurityGain}
               </span>
             ) : (
               <span className="whitespace-nowrap text-[28px] leading-none font-bold text-green">
@@ -344,7 +345,7 @@ function OverviewPage() {
             blastRadius: phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.inputs.reachableEntityCount : p3State.priority?.inputs.reachableEntityCount) ?? 0 : p2Metrics.blastRadius,
             riskLevel: currentBand,
             pathStatus: phase3Mode ? (remediationApplied ? "Mitigated" : "Active") : p2Metrics.pathStatus,
-            securityGain: phase3Mode ? (p3State.remediation.result?.after.priority.score !== undefined && p3State.priority?.score !== undefined ? (p3State.priority.score - p3State.remediation.result.after.priority.score) : 0) : p2Metrics.securityGain,
+            securityGain: currentSecurityGain,
           }}
           canApplyRemediation={canApplyRemediation}
           replayStep={replayStep}

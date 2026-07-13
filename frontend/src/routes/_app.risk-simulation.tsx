@@ -272,9 +272,9 @@ function RiskSimulationPage() {
                 <h2 className="mt-1 text-[16px] font-bold text-text">Factor Analysis</h2>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                   {(remediationApplied ? p3State.remediation.result?.after.priority.factors : p3State.priority?.factors)?.map(f => (
-                     <div key={f.name} className="p-3 border border-border-app rounded-md bg-panel-2">
-                        <div className="text-[11px] font-semibold text-muted mb-1">{f.name}</div>
-                        <div className="text-[18px] font-mono font-bold text-text">{f.contribution} <span className="text-[11px] text-muted font-sans font-normal">/ {f.maxPossible}</span></div>
+                     <div key={f.id} className="p-3 border border-border-app rounded-md bg-panel-2">
+                        <div className="text-[11px] font-semibold text-muted mb-1">{f.label}</div>
+                        <div className="text-[18px] font-mono font-bold text-text">{f.contribution} <span className="text-[11px] text-muted font-sans font-normal">/ {f.weight}</span></div>
                      </div>
                   ))}
                 </div>

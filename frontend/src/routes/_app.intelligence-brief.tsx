@@ -1,119 +1,74 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AlertOctagon } from "lucide-react";
+import { useAegisPath } from "../context/AegisPathContext";
 
 export const Route = createFileRoute("/_app/intelligence-brief")({
   component: IntelligenceBriefPage,
 });
 
-import { useAegisPath } from "../context/AegisPathContext";
-import { usePhase3Scenario } from "../hooks/usePhase3Scenario";
-
 function IntelligenceBriefPage() {
-  const { scenarioState, isLoading: p2Loading, isError: p2Error, error: p2Err, replayStep: p2ReplayStep, remediationApplied: p2RemediationApplied, phase3Mode } =
-    useAegisPath();
-  const { state: p3State, isPending: p3Loading } = usePhase3Scenario();
+  const { canonicalResult: state, canonicalSessionInput, canonicalIsLoading: isLoading } = useAegisPath();
 
-  const isLoading = phase3Mode ? p3Loading : p2Loading;
-  const isError = phase3Mode ? false : p2Error;
-  const error = phase3Mode ? null : p2Err;
+  const isRemediated = canonicalSessionInput.remediationActionId !== null;
+  const eventCount = canonicalSessionInput.processedEventCount;
 
-  if (isLoading || (!phase3Mode && !scenarioState)) {
-    return (
-      <div className="flex items-center gap-3 rounded-lg border border-teal/40 bg-teal/8 px-4 py-3">
-        <span className="text-[12.5px] font-semibold text-teal">Loading incident report...</span>
-      </div>
-    );
-  }
+  const currentScore = state?.priorityScore.score || 0;
+  const currentBand = state?.priorityScore.band || "Not Calculated";
+  const currentStatus = state?.pathStatus || "Awaiting Data";
 
-  if (isError) {
-    return (
-      <div className="flex items-center gap-3 rounded-lg border border-danger/40 bg-danger/8 px-4 py-3">
-        <span className="text-[12.5px] font-semibold text-danger">
-          Error loading report: {error?.message}
-        </span>
-      </div>
-    );
-  }
+  const reportStatus = isRemediated
+    ? "Remediated"
+    : eventCount === 0
+      ? "Pending"
+      : eventCount === 4
+        ? "Critical"
+        : "Investigating";
 
-  const incident = phase3Mode ? (p3State.remediation.applied ? p3State.remediation.result?.after.incidentReport : p3State.incidentReport) : scenarioState?.incidentReport;
-  const remediationApplied = phase3Mode ? p3State.remediation.applied : p2RemediationApplied;
-  const replayStep = phase3Mode ? p3State.events.length : p2ReplayStep;
+  const auditEntries = state?.auditEntries || [];
 
-  if (!incident && phase3Mode) {
-      return (
-         <div className="space-y-4">
-           <div className="rounded border border-teal/40 bg-teal/10 p-3 text-sm font-semibold text-teal flex items-center">
-             <span className="bg-teal text-bg px-1.5 py-0.5 rounded text-[10px] mr-2">PHASE 3</span>
-             Synthetic Security Simulation
-           </div>
-           <div className="flex items-center gap-3 rounded-lg border border-border-app bg-panel-2 px-4 py-3">
-             <span className="text-[12.5px] font-semibold text-muted">Awaiting synthetic event ingestion...</span>
-           </div>
-         </div>
-      );
-  }
-
-  const reportStatus = remediationApplied
-    ? "Threat Contained"
-    : replayStep === 0
-      ? "Report Pending"
-      : replayStep === 4
-        ? "Incident Confirmed"
-        : "Investigation Active";
-
-  let summaryText = "";
-  if (phase3Mode) {
-     summaryText = incident?.executiveSummary || "No summary available.";
-  } else {
-    if (replayStep === 0) {
-      summaryText =
-        "No threat events processed. Incident progression not confirmed. Awaiting event ingestion.";
-    } else if (remediationApplied) {
-      summaryText =
-        "Patch WST_02 severed the chokepoint. Previously observed events remain historical facts. Onward propagation is disrupted and the threat is contained.";
-    } else if (replayStep === 1) {
-      summaryText = "Suspicious activity links USR_03 to WST_02. Investigation remains incomplete.";
-    } else if (replayStep === 2) {
-      summaryText =
-        "Progression through WST_02 → SVC_01 is confirmed. Chokepoint is identified and remediation is available.";
-    } else if (replayStep === 3) {
-      summaryText =
-        "Lateral movement through SRV_01 is confirmed. DC_01 has not yet been reached. Current risk is Critical.";
-    } else if (replayStep === 4) {
-      summaryText =
-        "Full canonical attack path is confirmed. DC_01 was reached. The controlling chokepoint remains WST_02 → SVC_01.";
-    }
-  }
+  const summaryText = isRemediated
+    ? "The active lateral movement path was successfully disrupted. WST_02 was patched, severing the connection to SVC_01 and neutralizing the threat before it could reach the domain controller."
+    : eventCount === 0
+      ? "No events have been processed yet. Awaiting initial telemetry to generate incident report."
+      : eventCount === 4
+        ? "A critical attack path has been confirmed. The threat actor has established lateral movement and is positioned to compromise the domain controller. Immediate remediation is required."
+        : "An active attack path is currently under investigation. Progression through the network has been detected, but the domain controller has not yet been reached.";
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-xl border border-border-app bg-panel p-4 mb-4">
-        <div>
-          <div className="text-[10px] font-bold tracking-[0.18em] text-muted">INCIDENT ID</div>
-          <div className="mt-1 text-[13px] text-text font-mono">
-            IR-{new Date(incident.generatedAt).getTime().toString().slice(-6)}
+      {/* Header Info */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-border-app bg-panel p-5">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border-app bg-panel-2">
+            <AlertOctagon className={`h-6 w-6 ${isRemediated ? "text-green" : eventCount === 0 ? "text-muted" : "text-danger"}`} />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold tracking-[0.18em] text-muted">REPORT ID</div>
+            <div className="text-[16px] font-mono font-bold text-text">INC-2026-07-05</div>
           </div>
         </div>
-        <div className="flex gap-6">
+
+        <div className="grid grid-cols-3 gap-8">
           <div className="text-right">
-            <div className="text-[10px] font-bold tracking-[0.18em] text-muted">RISK RATING</div>
+            <div className="text-[10px] font-bold tracking-[0.18em] text-muted">RISK SCORE</div>
             <div
-              className={`mt-1 text-[13px] font-bold ${(phase3Mode ? p3State.priority?.band : scenarioState?.score.label) === "Critical" || (phase3Mode ? p3State.priority?.band : scenarioState?.score.label) === "High" ? "text-danger" : "text-orange"}`}
+              className={`mt-1 text-[13px] font-bold ${isRemediated ? "text-green" : eventCount === 0 ? "text-muted" : "text-danger"}`}
             >
-              {phase3Mode ? (p3State.priority?.band ?? "Not calculated") : `${scenarioState?.score.label} (${scenarioState?.score.total})`}
+              {currentBand} ({currentScore})
             </div>
           </div>
           <div className="text-right">
             <div className="text-[10px] font-bold tracking-[0.18em] text-muted">PATH STATUS</div>
             <div
-              className={`mt-1 text-[13px] font-bold ${remediationApplied ? "text-green" : replayStep === 0 ? "text-muted" : "text-danger"}`}
+              className={`mt-1 text-[13px] font-bold ${isRemediated ? "text-green" : eventCount === 0 ? "text-muted" : "text-danger"}`}
             >
-              {phase3Mode ? (p3State.priority?.band ? (p3State.remediation.applied ? "Disrupted" : "Active") : "Pending") : scenarioState?.pathStatus}
+              {currentStatus}
             </div>
           </div>
           <div className="text-right">
             <div className="text-[10px] font-bold tracking-[0.18em] text-muted">STATUS</div>
             <div
-              className={`mt-1 text-[13px] font-bold ${remediationApplied ? "text-green" : replayStep === 0 ? "text-muted" : replayStep === 4 ? "text-danger" : "text-orange"}`}
+              className={`mt-1 text-[13px] font-bold ${isRemediated ? "text-green" : eventCount === 0 ? "text-muted" : eventCount === 4 ? "text-danger" : "text-orange"}`}
             >
               {reportStatus}
             </div>
@@ -128,14 +83,14 @@ function IntelligenceBriefPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Section title="Remediation Status" eyebrow="RESPONSE OUTCOME">
           <dl className="grid grid-cols-3 gap-y-3 text-[12.5px]">
-            {replayStep < 2 ? (
+            {eventCount < 2 ? (
               <>
                 <dt className="text-muted">Status</dt>
                 <dd className="col-span-2 text-text">Not Available</dd>
                 <dt className="text-muted">Reason</dt>
                 <dd className="col-span-2 text-text">Chokepoint not yet detected</dd>
               </>
-            ) : !remediationApplied ? (
+            ) : !isRemediated ? (
               <>
                 <dt className="text-muted">Primary Action</dt>
                 <dd className="col-span-2 text-text font-mono">Patch WST_02</dd>
@@ -153,22 +108,26 @@ function IntelligenceBriefPage() {
                 <dt className="text-muted">Result</dt>
                 <dd className="col-span-2 text-text">Disrupted</dd>
                 <dt className="text-muted">Security Gain</dt>
-                <dd className="col-span-2 text-green font-bold">+{phase3Mode ? (p3State.remediation.result?.after.priority.score !== undefined && p3State.priority?.score !== undefined ? (p3State.priority.score - p3State.remediation.result.after.priority.score) : 0) : scenarioState?.securityGain}</dd>
+                <dd className="col-span-2 text-green font-bold">+{state?.securityGain}</dd>
               </>
             )}
           </dl>
         </Section>
 
-        <Section title="Attack Timeline" eyebrow="TIMELINE">
+        <Section title="Audit Trail" eyebrow="TIMELINE">
           <ol className="relative ml-3 border-l border-border-app">
-            {(phase3Mode ? p3State.events.length > 0 : scenarioState!.activeEvents.length > 0) ? (
-              (phase3Mode ? p3State.events : scenarioState!.activeEvents).map((t, i) => (
-                <li key={t.id} className="mb-4 ml-4">
+            {auditEntries.length > 0 ? (
+              auditEntries.map((a, i) => (
+                <li key={i} className="mb-4 ml-4">
                   <span
-                    className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full shadow-[0_0_10px_currentColor] ${i === 1 ? "bg-danger text-danger" : "bg-teal text-teal"}`}
+                    className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full shadow-[0_0_10px_currentColor] ${
+                      a.action === "remediation_applied" ? "bg-green text-green" :
+                      a.action === "event_processed" ? "bg-danger text-danger" :
+                      "bg-teal text-teal"
+                    }`}
                   />
                   <div className="font-mono text-[11px] text-muted">
-                    {new Date(phase3Mode ? new Date().toISOString() : t.timestamp).toLocaleString(undefined, {
+                    {new Date(a.timestamp).toLocaleString(undefined, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -178,24 +137,23 @@ function IntelligenceBriefPage() {
                     })}
                   </div>
                   <div className="text-[12.5px] text-text">
-                    {phase3Mode ? t.id : (t as any).message}{" "}
-                    {i === 1 && (
-                      <span className="ml-1 text-[10px] font-bold text-danger uppercase">
-                        [CHOKEPOINT]
-                      </span>
-                    )}
+                    {a.action === "remediation_applied" ? "Remediation Applied" :
+                     a.action === "event_processed" ? `Threat Event Processed: ${a.details.eventId}` :
+                     "Analysis Started"}
                   </div>
                   <div className="mt-1 text-[11px] text-muted">
-                    {phase3Mode ? `Raw Synthetic Event · ${t.id}` : `Source: ${(t as any).source} · Node: ${(t as any).nodeId}`}
+                    {a.action === "remediation_applied" ? "Path mitigated." :
+                     a.action === "event_processed" ? `Event triggered graph derivation.` :
+                     "Engine initialized."}
                   </div>
                 </li>
               ))
             ) : (
               <li className="ml-4">
                 <span className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-border-app" />
-                <div className="text-[12.5px] text-text">Awaiting threat events</div>
+                <div className="text-[12.5px] text-text">Awaiting audit events</div>
                 <div className="font-mono text-[11px] text-muted">
-                  Begin the replay to build the incident timeline from observed evidence.
+                  Begin processing events to build the incident timeline.
                 </div>
               </li>
             )}
@@ -214,21 +172,21 @@ function IntelligenceBriefPage() {
             </tr>
           </thead>
           <tbody>
-            {(phase3Mode ? (p3State.remediation.applied ? p3State.remediation.result?.after.detections || [] : p3State.detections || []) : scenarioState!.activeDetections).map((det) => (
-              <tr key={phase3Mode ? det.id : (det as any).detectionId} className="border-t border-border-app">
-                <td className="py-2 text-muted">{phase3Mode ? det.title : (det as any).detectionType}</td>
-                <td className="py-2 font-mono text-text">{phase3Mode ? det.classification.mitreAttackId : (det as any).technique}</td>
-                <td className="py-2 font-mono text-text">{phase3Mode ? det.graphHints.targetEntityId : (det as any).nodeId}</td>
+            {(state?.activeDetections || []).map((det) => (
+              <tr key={det.id} className="border-t border-border-app">
+                <td className="py-2 text-muted">{det.title}</td>
+                <td className="py-2 font-mono text-text">{det.classification.mitreAttackId}</td>
+                <td className="py-2 font-mono text-text">{det.graphHints?.targetEntityId || "Unknown"}</td>
                 <td className="py-2">
                   <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${(phase3Mode ? det.classification.confidence : (det as any).confidence) === "High" ? "bg-danger/15 text-danger" : "bg-orange/15 text-orange"}`}
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${det.classification.confidence === "High" ? "bg-danger/15 text-danger" : "bg-orange/15 text-orange"}`}
                   >
-                    {phase3Mode ? det.classification.confidence : (det as any).confidence}
+                    {det.classification.confidence}
                   </span>
                 </td>
               </tr>
             ))}
-            {(phase3Mode ? p3State.events.length === 0 : scenarioState!.activeDetections.length === 0) && (
+            {(!state?.activeDetections || state.activeDetections.length === 0) && (
               <tr>
                 <td colSpan={4} className="py-4 text-center text-muted">
                   No evidence processed
@@ -241,7 +199,7 @@ function IntelligenceBriefPage() {
 
       <Section title="Strategic Assessment" eyebrow="ASSESSMENT">
         <div className="space-y-3">
-          {replayStep === 0 && (
+          {eventCount === 0 && (
             <div className="flex flex-col gap-1 rounded-md border border-border-app bg-bg/60 p-3">
               <span className="text-[11.5px] font-bold tracking-wide text-muted uppercase">
                 Attack Path Unconfirmed
@@ -251,36 +209,36 @@ function IntelligenceBriefPage() {
               </span>
             </div>
           )}
-          {replayStep >= 1 && (
+          {eventCount >= 1 && (
             <div className="flex flex-col gap-1 rounded-md border border-border-app bg-bg/60 p-3">
               <span className="text-[11.5px] font-bold tracking-wide text-muted uppercase">
                 Confirmed Progression
               </span>
               <span className="text-[13px] text-text font-mono">
-                {replayStep === 1
+                {eventCount === 1
                   ? "USR_03 → WST_02"
-                  : replayStep === 2
+                  : eventCount === 2
                     ? "USR_03 → WST_02 → SVC_01"
-                    : replayStep === 3
+                    : eventCount === 3
                       ? "USR_03 → WST_02 → SVC_01 → SRV_01"
                       : "USR_03 → WST_02 → SVC_01 → SRV_01 → DC_01"}
               </span>
             </div>
           )}
-          {replayStep >= 2 && (
+          {eventCount >= 2 && (
             <div className="flex flex-col gap-1 rounded-md border border-border-app bg-bg/60 p-3">
               <span className="text-[11.5px] font-bold tracking-wide text-muted uppercase">
                 Controlling Chokepoint
               </span>
               <span className="text-[13px] text-text">
                 WST_02 → SVC_01 identified as chokepoint.{" "}
-                {remediationApplied && (
+                {isRemediated && (
                   <span className="text-green font-bold ml-1">Path Severed.</span>
                 )}
               </span>
             </div>
           )}
-          {replayStep === 3 && !remediationApplied && (
+          {eventCount === 3 && !isRemediated && (
             <div className="flex flex-col gap-1 rounded-md border border-border-app bg-bg/60 p-3">
               <span className="text-[11.5px] font-bold tracking-wide text-muted uppercase">
                 Operational Meaning
@@ -290,7 +248,7 @@ function IntelligenceBriefPage() {
               </span>
             </div>
           )}
-          {remediationApplied && (
+          {isRemediated && (
             <div className="flex flex-col gap-1 rounded-md border border-green/40 bg-green/10 p-3">
               <span className="text-[11.5px] font-bold tracking-wide text-green uppercase">
                 Path Status

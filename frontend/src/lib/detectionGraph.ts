@@ -210,7 +210,7 @@ export function deriveDetectionGraph(detections: readonly SyntheticDetection[]):
 export function findReachableEntityIds(graph: DetectionGraph, startEntityId: string): string[] {
   const reachable = new Set<string>();
   const queue = [startEntityId];
-  
+
   if (!graph.nodes.some(n => n.id === startEntityId)) return [];
 
   while (queue.length > 0) {

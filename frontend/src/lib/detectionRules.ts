@@ -19,7 +19,9 @@ export type SyntheticDetection = {
   title: string;
   description: string;
   severity: "low" | "medium" | "high" | "critical";
-  confidence: "low" | "medium" | "high";
+  confidence: "low" | "medium" | "high" | "critical";
+  confidenceScore: number;
+  confidenceExplanation?: string;
   detectedAt: string;
   sourceEventIds: string[];
   entities: {
@@ -80,15 +82,17 @@ const suspiciousIdentityRule: DetectionRule = {
           id: detId,
           synthetic: true,
           rule: { id: suspiciousIdentityRule.id, name: suspiciousIdentityRule.name, version: suspiciousIdentityRule.version },
-          title: "Suspicious Identity Access Bypassing MFA",
-          description: "A human user successfully authenticated from an anomalous IP address without MFA.",
-          severity: "high",
+          title: "Suspicious Identity Activity",
+          description: "An identity exhibited unusual behavior, potentially indicating compromised credentials.",
+          severity: "medium",
           confidence: "medium",
+          confidenceScore: 0.60,
+          confidenceExplanation: "MFA bypass is highly suspicious but could be a misconfiguration.",
           detectedAt: evt.timestamp,
           sourceEventIds: [evt.id],
           entities: {
             actorIds: evt.actor.userId ? [evt.actor.userId] : [],
-            assetIds: []
+            assetIds: evt.targetAsset?.id ? [evt.targetAsset.id] : []
           },
           mitre: {
             tactic: { name: "Initial Access" },
@@ -98,7 +102,12 @@ const suspiciousIdentityRule: DetectionRule = {
             { type: "identity", label: "Actor User ID", value: evt.actor.userId || "Unknown", sourceEventId: evt.id, fieldPath: "actor.userId" },
             { type: "network", label: "Source IP", value: evt.network.sourceIp, sourceEventId: evt.id, fieldPath: "network.sourceIp" },
             { type: "authentication", label: "MFA Used", value: false, sourceEventId: evt.id, fieldPath: "authentication.mfaUsed" }
-          ]
+          ],
+          graphHints: {
+            sourceEntityId: evt.actor.userId,
+            targetEntityId: evt.targetAsset?.id,
+            relationship: "initial-access"
+          }
         });
       }
     }
@@ -128,10 +137,12 @@ const lsassCredentialAccessRule: DetectionRule = {
           description: "A process attempted to access and dump LSASS memory, potentially extracting credentials.",
           severity: "critical",
           confidence: "high",
+          confidenceScore: 0.90,
+          confidenceExplanation: "Direct memory access to LSASS via minidump is a highly reliable indicator of credential dumping.",
           detectedAt: evt.timestamp,
           sourceEventIds: [evt.id],
           entities: {
-            actorIds: [],
+            actorIds: evt.targetIdentity?.id ? [evt.targetIdentity.id] : [],
             assetIds: evt.sourceAsset?.id ? [evt.sourceAsset.id] : []
           },
           mitre: {
@@ -141,8 +152,14 @@ const lsassCredentialAccessRule: DetectionRule = {
           evidence: [
             { type: "process", label: "Target Process", value: evt.process.targetProcess, sourceEventId: evt.id, fieldPath: "process.targetProcess" },
             { type: "process", label: "Command Line", value: evt.process.commandLine || "Unknown", sourceEventId: evt.id, fieldPath: "process.commandLine" },
-            { type: "asset", label: "Source Asset", value: evt.sourceAsset?.id || "Unknown", sourceEventId: evt.id, fieldPath: "sourceAsset.id" }
-          ]
+            { type: "asset", label: "Source Asset", value: evt.sourceAsset?.id || "Unknown", sourceEventId: evt.id, fieldPath: "sourceAsset.id" },
+            { type: "identity", label: "Target Account", value: evt.targetIdentity?.id || "Unknown", sourceEventId: evt.id, fieldPath: "targetIdentity.id" }
+          ],
+          graphHints: {
+            sourceEntityId: evt.sourceAsset?.id,
+            targetEntityId: evt.targetIdentity?.id,
+            relationship: "credential-dumping"
+          }
         });
       }
     }
@@ -175,6 +192,8 @@ const lateralMovementRule: DetectionRule = {
           description: "Successful network authentication from one asset to another using a service account.",
           severity: "high",
           confidence: "medium",
+          confidenceScore: 0.75,
+          confidenceExplanation: "Interactive or remote network logons by service accounts are abnormal, though sometimes used by administrators.",
           detectedAt: evt.timestamp,
           sourceEventIds: [evt.id],
           entities: {
@@ -225,6 +244,8 @@ const privilegedDcAccessRule: DetectionRule = {
           description: "A privileged account initiated directory replication operations against a domain controller.",
           severity: "critical",
           confidence: "high",
+          confidenceScore: 0.95,
+          confidenceExplanation: "DRSUAPI GetNCChanges from a non-DC system is a near-certain indicator of DCSync attack.",
           detectedAt: evt.timestamp,
           sourceEventIds: [evt.id],
           entities: {
@@ -261,7 +282,7 @@ const ALL_RULES = [
 
 export function evaluateDetectionRules(events: readonly RawSyntheticEvent[]): SyntheticDetection[] {
   const allDetections: SyntheticDetection[] = [];
-  
+
   // Deterministic rule evaluation
   for (const rule of ALL_RULES) {
     const ruleDets = rule.evaluate(events);

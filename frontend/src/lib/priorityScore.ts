@@ -145,18 +145,18 @@ export function calculateAttackPathPriority(
   };
 
   // Factor 3: Credential-access exposure (Max 15)
-  const credDets = detections.filter(d => 
+  const credDets = detections.filter(d =>
     d.mitre.techniques.some(t => t.id === "T1003.001" || t.id === "T1003.006")
   );
   const credTechs = new Set<string>();
   credDets.forEach(d => d.mitre.techniques.forEach(t => {
     if (t.id === "T1003.001" || t.id === "T1003.006") credTechs.add(t.id);
   }));
-  
+
   let credNorm = 0;
   if (credTechs.size === 1) credNorm = 0.6;
   if (credTechs.size >= 2) credNorm = 1.0;
-  
+
   const credWeight = 15;
   const credContribution = roundToTwo(credNorm * credWeight);
 
@@ -167,8 +167,8 @@ export function calculateAttackPathPriority(
     normalizedValue: credNorm,
     weight: credWeight,
     contribution: credContribution,
-    explanation: credTechs.size === 0 ? "No specific credential access techniques detected." 
-                 : credTechs.size === 1 ? "One credential access technique detected." 
+    explanation: credTechs.size === 0 ? "No specific credential access techniques detected."
+                 : credTechs.size === 1 ? "One credential access technique detected."
                  : "Multiple distinct credential access techniques detected (e.g., LSASS + DCSync).",
     supportingDetectionIds: uniqueSorted(credDets.map(d => d.id)),
     supportingEntityIds: uniqueSorted(credDets.flatMap(d => d.entities.assetIds)),
@@ -176,18 +176,18 @@ export function calculateAttackPathPriority(
   };
 
   // Factor 4: Service-account involvement (Max 10)
-  const svcDets = detections.filter(d => 
+  const svcDets = detections.filter(d =>
     d.entities.actorIds.some(id => {
       const bn = AegisPathModel.graphNodes.find(n => n.id === id);
       return bn?.type === "Service Account";
     })
   );
-  
+
   const svcIds = uniqueSorted(svcDets.flatMap(d => d.entities.actorIds.filter(id => {
     const bn = AegisPathModel.graphNodes.find(n => n.id === id);
     return bn?.type === "Service Account";
   })));
-  
+
   const svcNorm = svcIds.length > 0 ? 1.0 : 0.0;
   const svcWeight = 10;
   const svcContribution = roundToTwo(svcNorm * svcWeight);
@@ -206,8 +206,8 @@ export function calculateAttackPathPriority(
   };
 
   // Factor 5: Privileged or critical-target access (Max 20)
-  const privDets = detections.filter(d => 
-    d.mitre.techniques.some(t => t.id === "T1003.006") || 
+  const privDets = detections.filter(d =>
+    d.mitre.techniques.some(t => t.id === "T1003.006") ||
     d.entities.assetIds.some(id => {
       const bn = AegisPathModel.graphNodes.find(n => n.id === id);
       return bn?.status === "critical_target";
@@ -217,11 +217,11 @@ export function calculateAttackPathPriority(
     const bn = AegisPathModel.graphNodes.find(n => n.id === id);
     return bn?.status === "critical_target";
   })));
-  
+
   let privNorm = 0;
   if (privDets.length > 0) privNorm = 0.5;
   if (criticalTargetIds.length > 0 || credTechs.has("T1003.006")) privNorm = 1.0;
-  
+
   const privWeight = 20;
   const privContribution = roundToTwo(privNorm * privWeight);
 
@@ -232,8 +232,8 @@ export function calculateAttackPathPriority(
     normalizedValue: privNorm,
     weight: privWeight,
     contribution: privContribution,
-    explanation: privNorm === 1.0 ? "Explicit critical target access or DCSync behavior detected." 
-                 : privNorm > 0 ? "Privileged behavior detected." 
+    explanation: privNorm === 1.0 ? "Explicit critical target access or DCSync behavior detected."
+                 : privNorm > 0 ? "Privileged behavior detected."
                  : "No critical target or highly privileged behavior detected.",
     supportingDetectionIds: uniqueSorted(privDets.map(d => d.id)),
     supportingEntityIds: criticalTargetIds,
@@ -261,7 +261,7 @@ export function calculateAttackPathPriority(
     if (maxReachableCount >= 2) reachNorm = 0.75;
     if (reachesCritical) reachNorm = 1.0;
   }
-  
+
   const reachWeight = 15;
   const reachContribution = roundToTwo(reachNorm * reachWeight);
 
@@ -291,7 +291,7 @@ export function calculateAttackPathPriority(
         limitations.push("The graph does not contain a continuous detection-supported edge path connecting all referenced entities.");
       }
     }
-    
+
     // Specifically check if a service account is a node but is not the target or source of any edges
     if (svcIds.length > 0) {
       const svcInEdges = graph.edges.some(e => svcIds.includes(e.source) || svcIds.includes(e.target));

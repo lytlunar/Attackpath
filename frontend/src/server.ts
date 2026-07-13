@@ -48,79 +48,16 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
-      
+
       if (url.pathname.startsWith('/api/')) {
-        if (url.pathname === '/api/scenario/state') {
-          if (request.method !== 'GET') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'GET' } });
-          }
-          const { GET } = await import('./routes/api/scenario/state');
-          return await GET(request);
-        }
-        if (url.pathname === '/api/scenario/start') {
+        if (url.pathname === '/api/scenario/analyze') {
           if (request.method !== 'POST') {
             return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
           }
-          const { POST } = await import('./routes/api/scenario/start');
+          const { POST } = await import('./routes/api/scenario/analyze');
           return await POST(request);
         }
-        if (url.pathname === '/api/scenario/reset') {
-          if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
-          }
-          const { POST } = await import('./routes/api/scenario/reset');
-          return await POST(request);
-        }
-        if (url.pathname === '/api/remediation/preview') {
-          if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
-          }
-          const { POST } = await import('./routes/api/remediation/preview');
-          return await POST(request);
-        }
-        if (url.pathname === '/api/remediation/apply') {
-          if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
-          }
-          const { POST } = await import('./routes/api/remediation/apply');
-          return await POST(request);
-        }
-        if (url.pathname === '/api/scenario/ingest') {
-          if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
-          }
-          const { POST } = await import('./routes/api/scenario/ingest');
-          return await POST(request);
-        }
-        if (url.pathname === '/api/scenario/detect') {
-          if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
-          }
-          const { POST } = await import('./routes/api/scenario/detect');
-          return await POST(request);
-        }
-        if (url.pathname === '/api/scenario/graph') {
-          if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
-          }
-          const { POST } = await import('./routes/api/scenario/graph');
-          return await POST(request);
-        }
-        if (url.pathname === '/api/scenario/priority') {
-          if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
-          }
-          const { POST } = await import('./routes/api/scenario/priority');
-          return await POST(request);
-        }
-        if (url.pathname === '/api/scenario/remediate') {
-          if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405, headers: { 'Content-Type': 'application/json', 'Allow': 'POST' } });
-          }
-          const { POST } = await import('./routes/api/scenario/remediate');
-          return await POST(request);
-        }
-        
+
         return new Response(JSON.stringify({ error: "Not Found" }), { status: 404, headers: { 'Content-Type': 'application/json' } });
       }
 

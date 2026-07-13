@@ -26,6 +26,10 @@ export const rawSyntheticEventFixtures: RawSyntheticEvent[] = [
     network: {
       sourceIp: "192.168.1.100", // Anomalous IP
     },
+    targetAsset: {
+      id: "WST_02",
+      assetType: "Workstation",
+    },
     metadata: {
       description: "Anomalous successful cloud authentication bypassing expected MFA.",
     },
@@ -47,6 +51,10 @@ export const rawSyntheticEventFixtures: RawSyntheticEvent[] = [
     sourceAsset: {
       id: "WST_02",
       assetType: "Workstation",
+    },
+    targetIdentity: {
+      id: "SVC_01",
+      accountType: "service",
     },
     process: {
       name: "rundll32.exe",
@@ -76,8 +84,8 @@ export const rawSyntheticEventFixtures: RawSyntheticEvent[] = [
       accountType: "service",
     },
     sourceAsset: {
-      id: "WST_02",
-      assetType: "Workstation",
+      id: "SVC_01",
+      assetType: "Service Account",
     },
     targetAsset: {
       id: "SRV_01",

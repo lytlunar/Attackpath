@@ -11,17 +11,14 @@ import {
   Server,
   Building2,
   Crown,
-  Plus,
   Play,
   RotateCcw,
   LayoutGrid,
   FileText,
   ChevronLeft,
   ChevronRight as CR,
-  Loader2,
 } from "lucide-react";
 import { useAegisPath } from "../context/AegisPathContext";
-import { usePhase3Scenario } from "../hooks/usePhase3Scenario";
 
 export const Route = createFileRoute("/_app/overview")({
   component: OverviewPage,
@@ -63,40 +60,27 @@ function useCountTo(target: number, duration = 1200) {
 
 function OverviewPage() {
   const {
-    remediationApplied: p2RemediationApplied,
-    metrics: p2Metrics,
-    applyRemediation: p2ApplyRemediation,
-    resetRemediation: p2ResetRemediation,
-    isLoading: p2Loading,
-    isError: p2Error,
-    error: p2Err,
-    scenarioState,
-    replayStep: p2ReplayStep,
-    canApplyRemediation: p2CanApply,
-    phase3Mode
+    canonicalResult: state,
+    canonicalIsLoading: isLoading,
+    canonicalIsError: isError,
+    canonicalError: error,
+    canonicalSessionInput,
+    applyCanonicalRemediation,
+    resetCanonicalRemediation,
+    processNextEvent,
   } = useAegisPath();
 
-  const {
-    state: p3State,
-    isPending: p3Loading,
-    applyRemediation: p3ApplyRemediation,
-    resetRemediation: p3ResetRemediation,
-  } = usePhase3Scenario();
+  const isRemediated = canonicalSessionInput.remediationActionId !== null;
+  const eventCount = canonicalSessionInput.processedEventCount;
 
-  const isLoading = phase3Mode ? p3Loading : p2Loading;
-  const isError = phase3Mode ? false : p2Error;
-  const error = phase3Mode ? null : p2Err;
-  const remediationApplied = phase3Mode ? p3State.remediation.applied : p2RemediationApplied;
-  const replayStep = phase3Mode ? p3State.events.length : p2ReplayStep;
-  const canApplyRemediation = phase3Mode ? (p3State.events.length >= 2) : p2CanApply;
-
-  const currentScore = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.score : p3State.priority.score) || 0 : p2Metrics.riskScore;
-  const currentBand = phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.band : p3State.priority.band) || "Low" : p2Metrics.riskLevel;
-  const currentSecurityGain = phase3Mode ? (remediationApplied && p3State.remediation.result?.after.priority.score !== undefined && p3State.priority?.score !== undefined ? (p3State.priority.score - p3State.remediation.result.after.priority.score) : 0) : p2Metrics.securityGain;
+  const currentScore = state?.priorityScore.score || 0;
+  const currentBand = state?.priorityScore.band || "Not Calculated";
+  const currentReach = state?.blastRadius?.percentage || 0;
+  const currentStatus = state?.pathStatus || "Awaiting Analysis";
+  const currentGain = state?.securityGain || 0;
 
   const riskScore = useCountTo(currentScore);
-  const blastRadius = useCountTo(p2Metrics.blastRadius); // We keep blast radius from Phase 2 since it's not projected in Phase 3
-
+  const blastRadius = useCountTo(currentReach);
 
   return (
     <div className="space-y-6">
@@ -113,62 +97,36 @@ function OverviewPage() {
         </div>
       )}
       {/* ALERT BANNER */}
-      {!isLoading && !isError && (phase3Mode || scenarioState) && (
+      {!isLoading && !isError && state && (
         <div
           className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${
-            remediationApplied
+            isRemediated
               ? "border-green/40 bg-green/8 text-green"
-              : replayStep === 0
+              : eventCount === 0
                 ? "border-teal/40 bg-teal/8 text-teal"
                 : "border-danger/40 bg-danger/8 text-danger"
           }`}
         >
           <span
             className={`h-2 w-2 rounded-full flex-shrink-0 ${
-              remediationApplied ? "bg-green" : replayStep === 0 ? "bg-teal" : "bg-danger live-dot"
+              isRemediated ? "bg-green" : eventCount === 0 ? "bg-teal" : "bg-danger live-dot"
             }`}
           />
           <span className="text-[12.5px] font-semibold">
-            {phase3Mode ? (
-              remediationApplied
-                ? "Attack path disrupted — synthetic model updated"
-                : replayStep === 0
-                  ? "Synthetic Stream ready — no events processed"
-                  : replayStep === 1
-                    ? "Synthetic Initial Access"
-                    : replayStep === 2
-                      ? "Synthetic Chokepoint — Remediation Available"
-                      : replayStep === 3
-                        ? "Synthetic Lateral Movement Detected"
-                        : "Synthetic Lateral Movement Path Detected"
-            ) : (
-              remediationApplied
-                ? "Attack path disrupted — chokepoint severed"
-                : replayStep === 0
-                  ? "Replay ready — no threat events processed"
-                  : replayStep === 1
-                    ? "Initial Access Detected"
-                    : replayStep === 2
-                      ? "Chokepoint Detected — Remediation Available"
-                      : replayStep === 3
-                        ? "Active Lateral Movement Detected"
-                        : "1 Critical Active Lateral Movement Path Detected"
-            )}
+            {isRemediated
+              ? "Critical route disrupted — exposure reduced"
+              : eventCount === 0
+                ? "Ready for analysis — no events processed"
+                : "Critical attack path detected"}
           </span>
           <span
-            className={`ml-auto font-mono text-[11px] ${remediationApplied ? "text-green/70" : "text-muted"}`}
+            className={`ml-auto font-mono text-[11px] ${isRemediated ? "text-green/70" : "text-muted"}`}
           >
-            {remediationApplied
+            {isRemediated
               ? "Path: Disrupted"
-              : replayStep === 0
+              : eventCount === 0
                 ? "Awaiting initial event"
-                : replayStep === 1
-                  ? "Active path: USR_03 → WST_02"
-                  : replayStep === 2
-                    ? "Active path: USR_03 → WST_02 → SVC_01"
-                    : replayStep === 3
-                      ? "Active path: USR_03 → WST_02 → SVC_01 → SRV_01"
-                      : "Active path: USR_03 → WST_02 → SVC_01 → SRV_01 → DC_01 · Chokepoint: WST_02"}
+                : `Active edges: ${state.activeGraph?.edges?.length || 0}`}
           </span>
         </div>
       )}
@@ -177,14 +135,16 @@ function OverviewPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {/* Risk Score */}
         <MetricCard
-          tint={remediationApplied ? "green" : "red"}
-          label={phase3Mode ? "PRIORITY SCORE" : "RISK SCORE"}
+          tint={isRemediated ? "green" : "red"}
+          label="ATTACK PATH PRIORITY SCORE"
           value={
             isLoading ? (
               <span className="text-[42px] leading-none font-bold text-muted">—</span>
+            ) : eventCount === 0 ? (
+              <span className="text-[42px] leading-none font-bold text-muted">—</span>
             ) : (
               <span
-                className={`text-[42px] leading-none font-bold tabular-nums ${remediationApplied ? "text-green" : "text-danger"}`}
+                className={`text-[42px] leading-none font-bold tabular-nums ${isRemediated ? "text-green" : "text-danger"}`}
               >
                 {riskScore}
               </span>
@@ -193,7 +153,9 @@ function OverviewPage() {
           badge={
             isLoading ? (
               <Pill tone="teal">Loading</Pill>
-            ) : remediationApplied ? (
+            ) : eventCount === 0 ? (
+              <Pill tone="teal">None</Pill>
+            ) : isRemediated ? (
               <Pill tone="orange">{currentBand}</Pill>
             ) : (
               <Pill tone="red">{currentBand}</Pill>
@@ -201,61 +163,65 @@ function OverviewPage() {
           }
           icon={
             <AlertOctagon
-              className={`h-6 w-6 ${remediationApplied ? "text-green" : "text-danger"}`}
+              className={`h-6 w-6 ${isRemediated ? "text-green" : "text-danger"}`}
             />
           }
-          subtitle={remediationApplied ? "Risk reduced" : "Active path risk"}
+          subtitle={isRemediated ? "Risk reduced" : "Active path risk"}
           progress={{
             value: isLoading || isError ? 0 : currentScore,
-            tone: remediationApplied ? "green" : "red",
+            tone: isRemediated ? "green" : "red",
           }}
           delay={0}
         />
 
         {/* Blast Radius */}
         <MetricCard
-          tint={remediationApplied ? "green" : "red"}
-          label={phase3Mode ? "DETECTION-SUPPORTED REACH" : "BLAST RADIUS"}
+          tint={isRemediated ? "green" : "red"}
+          label="ASSET EXPOSURE REACH"
           value={
-            isLoading ? (
+            isLoading || eventCount === 0 ? (
               <span className="text-[42px] leading-none font-bold text-muted">—</span>
             ) : (
               <span
-                className={`text-[42px] leading-none font-bold tabular-nums ${remediationApplied ? "text-green" : "text-danger"}`}
+                className={`text-[42px] leading-none font-bold tabular-nums ${isRemediated ? "text-green" : "text-danger"}`}
               >
-                {phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.inputs.reachableEntityCount : p3State.priority?.inputs.reachableEntityCount) ?? 0 : `${blastRadius}%`}
+                {blastRadius}%
               </span>
             )
           }
           icon={
-            <Radar className={`h-6 w-6 ${remediationApplied ? "text-green" : "text-danger"}`} />
+            <Radar className={`h-6 w-6 ${isRemediated ? "text-green" : "text-danger"}`} />
           }
-          subtitle={phase3Mode ? "Downstream entities reachable" : "Potential domain impact"}
-          progress={phase3Mode ? undefined : {
-            value: isLoading ? 0 : blastRadius,
-            tone: remediationApplied ? "green" : "red",
+          subtitle="Downstream entities reachable"
+          progress={{
+            value: isLoading || isError ? 0 : blastRadius,
+            tone: isRemediated ? "green" : "red",
           }}
           delay={80}
         />
 
         {/* Path Status */}
         <MetricCard
-          tint={remediationApplied ? "green" : "red"}
+          tint={isRemediated ? "green" : "red"}
           label="PATH STATUS"
           value={
             <div className="flex items-center gap-2">
               <span
-                className={`text-[32px] leading-none font-bold ${remediationApplied ? "text-green" : isLoading ? "text-muted" : "text-danger"}`}
+                className={`text-[32px] leading-none font-bold ${isRemediated ? "text-green" : isLoading ? "text-muted" : "text-danger"}`}
               >
-                {isLoading ? "—" : (phase3Mode ? (remediationApplied ? "Mitigated" : "Active") : p2Metrics.pathStatus)}
+                {isLoading ? "—" : currentStatus}
               </span>
               {isLoading ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-teal/15 px-2 py-0.5 text-[10px] font-bold tracking-wider text-teal">
                   LOADING
                 </span>
-              ) : remediationApplied ? (
+              ) : isRemediated ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-green/15 px-2 py-0.5 text-[10px] font-bold tracking-wider text-green">
                   <span className="h-1.5 w-1.5 rounded-full bg-green" /> SECURED
+                </span>
+              ) : eventCount === 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-teal/15 px-2 py-0.5 text-[10px] font-bold tracking-wider text-teal">
+                  AWAITING
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2 py-0.5 text-[10px] font-bold tracking-wider text-danger">
@@ -269,40 +235,26 @@ function OverviewPage() {
               <polyline
                 points="0,12 8,12 12,4 16,20 20,8 24,16 28,12 46,12"
                 fill="none"
-                stroke={isLoading ? "currentColor" : remediationApplied ? "#32B86A" : "#D93A46"}
+                stroke={isLoading || eventCount === 0 ? "currentColor" : isRemediated ? "#32B86A" : "#D93A46"}
                 strokeWidth="1.6"
-                className={isLoading ? "text-muted" : ""}
+                className={isLoading || eventCount === 0 ? "text-muted" : ""}
               />
             </svg>
           }
-          subtitle={
-            <span className="font-mono text-[12px] text-muted">
-              {isLoading
-                ? "—"
-                : replayStep === 0
-                  ? "—"
-                  : replayStep === 1
-                    ? "USR_03 → WST_02"
-                    : replayStep === 2
-                      ? "USR_03 → SVC_01"
-                      : replayStep === 3
-                        ? "USR_03 → SRV_01"
-                        : "USR_03 → DC_01"}
-            </span>
-          }
+          subtitle={<span className="font-mono text-[12px] text-muted">Analysis Engine</span>}
           delay={160}
         />
 
         {/* Security Gain / Primary Fix */}
         <MetricCard
           tint="green"
-          label={remediationApplied ? "SECURITY GAIN" : "PRIMARY FIX"}
+          label={isRemediated ? "SECURITY GAIN" : "PRIMARY REMEDIATION"}
           value={
-            isLoading ? (
+            isLoading || eventCount === 0 ? (
               <span className="text-[42px] leading-none font-bold text-muted">—</span>
-            ) : remediationApplied ? (
+            ) : isRemediated ? (
               <span className="text-[42px] leading-none font-bold text-green tabular-nums">
-                +{currentSecurityGain}
+                +{currentGain}
               </span>
             ) : (
               <span className="whitespace-nowrap text-[28px] leading-none font-bold text-green">
@@ -312,15 +264,13 @@ function OverviewPage() {
           }
           icon={<Wrench className="h-6 w-6 text-green" />}
           subtitle={
-            isLoading ? (
-              <span className="text-muted">Loading...</span>
-            ) : remediationApplied ? (
+            isLoading || eventCount === 0 ? (
+              <span className="text-muted">Not Available</span>
+            ) : isRemediated ? (
               <span className="text-green font-semibold">Remediation applied</span>
             ) : (
-              <>
-                Est. security gain: <span className="font-bold text-green">55</span>
-              </>
-            ) // It says 'do not calculate projected values' here without preview, but we can just use 55 as neutral or pull from preview if needed. Actually, "Est. security gain: 55" is just static placeholder here unless we use a preview. The prompt says "Do not hardcode projected metric constants". Let's hide it if not applied. Wait, the prompt says "Do not hardcode projected metric constants 55".
+              <span className="text-muted">Available to apply</span>
+            )
           }
           delay={240}
         />
@@ -329,34 +279,30 @@ function OverviewPage() {
       {/* MIDDLE ROW */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.85fr_1fr]">
         <AttackPathPanel
-          simulated={remediationApplied}
-          scenarioState={scenarioState}
-          replayStep={replayStep}
-          phase3Mode={phase3Mode}
-          p3Graph={p3State.graph}
+          isRemediated={isRemediated}
+          state={state}
         />
         <PlaybookPanel
-          simulated={remediationApplied}
-          onApply={phase3Mode ? p3ApplyRemediation : p2ApplyRemediation}
-          onReset={phase3Mode ? p3ResetRemediation : p2ResetRemediation}
+          isRemediated={isRemediated}
+          onApply={() => applyCanonicalRemediation("patch_wst_02")}
+          onReset={resetCanonicalRemediation}
+          onStart={processNextEvent}
           isLoading={isLoading}
+          eventCount={eventCount}
           metrics={{
             riskScore: currentScore,
-            blastRadius: phase3Mode ? (remediationApplied ? p3State.remediation.result?.after.priority.inputs.reachableEntityCount : p3State.priority?.inputs.reachableEntityCount) ?? 0 : p2Metrics.blastRadius,
+            blastRadius: currentReach,
             riskLevel: currentBand,
-            pathStatus: phase3Mode ? (remediationApplied ? "Mitigated" : "Active") : p2Metrics.pathStatus,
-            securityGain: currentSecurityGain,
+            pathStatus: currentStatus,
+            securityGain: currentGain,
           }}
-          canApplyRemediation={canApplyRemediation}
-          replayStep={replayStep}
-          phase3Mode={phase3Mode}
         />
       </div>
 
       {/* BOTTOM ROW */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <MitrePanel activeDetections={scenarioState?.activeDetections || []} />
-        <EvidencePanel activeEvents={scenarioState?.activeEvents || []} />
+        <MitrePanel activeDetections={state?.activeDetections || []} />
+        <EvidencePanel activeDetections={state?.activeDetections || []} />
       </div>
     </div>
   );
@@ -443,72 +389,53 @@ function MetricCard({
 /* ---------- attack path ---------- */
 
 function AttackPathPanel({
-  simulated,
-  scenarioState,
-  replayStep,
-  phase3Mode,
-  p3Graph,
+  isRemediated,
+  state,
 }: {
-  simulated: boolean;
-  scenarioState?: import("../lib/types").ScenarioState;
-  replayStep: number;
-  phase3Mode?: boolean;
-  p3Graph?: import("../lib/detectionGraph").DetectionGraph | null;
+  isRemediated: boolean;
+  state?: import("../lib/canonicalEngine").CanonicalAnalysisResult;
 }) {
   const nodes: {
     id: NodeId;
     label: string;
     icon: React.ReactNode;
     tint: string;
-    extra?: React.ReactNode;
-    muted?: boolean;
   }[] = [
     {
       id: "USR_03",
       label: "User Identity",
       icon: <User className="h-5 w-5 text-blue" />,
       tint: "bg-blue/15 border-blue/40",
-      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "USR_03") : true) : replayStep < 1,
     },
     {
       id: "WST_02",
       label: "Workstation",
       icon: <Monitor className="h-5 w-5 text-danger" />,
-      tint: `bg-danger/15 border-danger/50 ${simulated || (phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "WST_02") : true) : replayStep < 1) ? "" : "pulse-glow-red"}`,
-      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "WST_02") : true) : replayStep < 1,
-      extra: (!phase3Mode && replayStep >= 1) && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-danger px-2 py-0.5 text-[9px] font-bold tracking-widest text-white shadow">
-          CHOKEPOINT
-        </span>
-      ),
+      tint: "bg-danger/15 border-danger/50 pulse-glow-red",
     },
     {
       id: "SVC_01",
       label: "Service Account",
       icon: <Cog className="h-5 w-5 text-teal" />,
       tint: "bg-teal/15 border-teal/40",
-      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "SVC_01") : true) : (simulated || replayStep < 2),
     },
     {
       id: "SRV_01",
       label: "Server",
       icon: <Server className="h-5 w-5 text-orange" />,
       tint: "bg-orange/15 border-orange/40",
-      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "SRV_01") : true) : (simulated || replayStep < 3),
     },
     {
       id: "DC_01",
       label: "Domain Controller",
       icon: <Building2 className="h-5 w-5 text-orange" />,
       tint: "bg-orange/15 border-gold/50 shadow-[0_0_24px_-6px_rgba(244,201,93,0.7)]",
-      extra: (
-        <Crown
-          className={`pulse-gold absolute -top-4 left-1/2 h-4 w-4 -translate-x-1/2 text-gold ${simulated || (phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "DC_01") : true) : replayStep < 4) ? "opacity-50" : ""}`}
-        />
-      ),
-      muted: phase3Mode ? (p3Graph ? !p3Graph.nodes.find(n => n.id === "DC_01") : true) : (simulated || replayStep < 4),
     },
   ];
+
+  const hasEdge = (src: string, tgt: string) => {
+    return state?.activeGraph?.edges?.some(e => e.source === src && e.target === tgt) || false;
+  };
 
   return (
     <section
@@ -518,37 +445,31 @@ function AttackPathPanel({
       <div className="mb-4 flex items-start justify-between">
         <div>
           <div className="text-[10px] font-bold tracking-[0.18em] text-muted">
-            {phase3Mode ? "SYNTHETIC ATTACK PATH" : "ACTIVE ATTACK PATH"}
+            ATTACK PATH
           </div>
           <h2 className="mt-1 text-[16px] font-bold text-text">Attack Path Topology</h2>
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-bold ${simulated ? "bg-green/15 text-green" : replayStep === 0 ? "bg-teal/15 text-teal" : "bg-danger/15 text-danger"}`}
+          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-bold ${isRemediated ? "bg-green/15 text-green" : (state?.activeGraph?.edges?.length || 0) === 0 ? "bg-teal/15 text-teal" : "bg-danger/15 text-danger"}`}
         >
           <span
-            className={`h-1.5 w-1.5 rounded-full ${simulated ? "bg-green" : replayStep === 0 ? "bg-teal" : "bg-danger live-dot"}`}
+            className={`h-1.5 w-1.5 rounded-full ${isRemediated ? "bg-green" : (state?.activeGraph?.edges?.length || 0) === 0 ? "bg-teal" : "bg-danger live-dot"}`}
           />
-          {simulated ? "Disrupted" : replayStep === 0 ? "Awaiting Events" : "Live"}
+          {isRemediated ? "Disrupted" : (state?.activeGraph?.edges?.length || 0) === 0 ? "Awaiting Events" : "Live"}
         </span>
       </div>
 
-      <div className="relative rounded-lg border border-border-app bg-bg/60 p-6">
-        {phase3Mode && p3Graph && (
+      <div className="relative rounded-lg border border-border-app bg-bg/60 p-6 overflow-hidden">
+        {state && (
           <svg className="absolute inset-0 h-full w-full pointer-events-none" style={{ zIndex: 0 }}>
-            {/* Draw custom Phase 3 edges using absolute coordinates based on flex layout */}
-            {/* Since we don't have refs to exact positions, we can use percentages for the 5-node flex layout */}
-            {p3Graph.edges.map((edge, i) => {
+            {(state.contextGraph?.edges ?? []).map((edge) => {
               const nodeIndices: Record<string, number> = { "USR_03": 0, "WST_02": 1, "SVC_01": 2, "SRV_01": 3, "DC_01": 4 };
               const srcIdx = nodeIndices[edge.source];
               const tgtIdx = nodeIndices[edge.target];
               if (srcIdx === undefined || tgtIdx === undefined) return null;
 
-              // 5 nodes means 4 spaces. Each node center is roughly at: 10%?, 30%?
-              // Actually flex is `flex-1 items-center` with `justify-between`.
-              // The nodes take up equal width fractions.
-              const getX = (idx: number) => `${10 + (idx * 20)}%`; // Approx center for 5 nodes
-
-              const isSevered = simulated && edge.source === "WST_02" && edge.target === "SRV_01";
+              const getX = (idx: number) => `${10 + (idx * 20)}%`;
+              const isActive = hasEdge(edge.source, edge.target);
 
               return (
                 <line
@@ -557,9 +478,9 @@ function AttackPathPanel({
                   y1="50%"
                   x2={getX(tgtIdx)}
                   y2="50%"
-                  stroke={isSevered ? "#D93A4660" : "#ef5b6c"}
-                  strokeWidth="2"
-                  strokeDasharray={isSevered ? "6 6" : "6 4"}
+                  stroke={isActive ? "#ef5b6c" : "#232A46"}
+                  strokeWidth={isActive ? "2" : "1"}
+                  strokeDasharray={isActive ? "6 4" : "4 4"}
                 />
               );
             })}
@@ -567,31 +488,16 @@ function AttackPathPanel({
         )}
         <div className="relative flex items-stretch justify-between gap-1 z-10">
           {nodes.map((n, i) => {
-            let activePhase2 = replayStep > i;
-            let showEdge = true;
-            let edgeSevered = simulated && i === 1;
-            let edgeFast = i === 1;
-
-            if (phase3Mode) {
-              // In phase 3, we don't draw the standard flex edges if there's no direct connection
-              // Wait, the SVG draws the connections. We just make the flex edges transparent
-              // to keep the layout spacing correct.
-              showEdge = false;
-            }
+            const inContext = state ? (state.contextGraph?.nodes ?? []).some(cn => cn.id === n.id) : true;
+            const inActive = state ? (state.activeGraph?.nodes ?? []).some(an => an.id === n.id) : false;
+            const muted = !inActive && state && (state.activeGraph?.edges?.length || 0) > 0;
 
             return (
               <div key={n.id} className={`flex ${i < nodes.length - 1 ? 'flex-1' : ''} items-center`}>
-                {n.id === "SVC_01" && phase3Mode ? (
-                  <div className="absolute left-[50%] -translate-x-1/2 -top-4">
-                    <NodeBubble node={n} />
-                    <div className="text-[9px] text-teal/70 font-bold tracking-widest text-center mt-1 uppercase">Actor</div>
-                  </div>
-                ) : (
-                  <NodeBubble node={n} />
-                )}
+                <NodeBubble node={{ ...n, muted: muted as boolean }} />
                 {i < nodes.length - 1 && (
-                  <div className={`flex-1 mx-1 ${showEdge ? '' : 'opacity-0'}`}>
-                    <Edge severed={edgeSevered} fast={edgeFast} active={activePhase2} />
+                  <div className="flex-1 mx-1 opacity-0">
+                    <div className="h-2 w-full" />
                   </div>
                 )}
               </div>
@@ -599,22 +505,6 @@ function AttackPathPanel({
           })}
         </div>
       </div>
-
-      {simulated ? (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-green/40 bg-green/8 px-3 py-1.5 font-mono text-[12px] text-green">
-          <span className="h-2 w-2 rounded-full bg-green" />
-          WST_02 → SVC_01: Path severed · Downstream nodes isolated
-        </div>
-      ) : replayStep >= 2 ? (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-danger/30 bg-danger/8 px-3 py-1.5 font-mono text-[12px] text-danger">
-          <Plus className="h-3.5 w-3.5" />
-          WST_02 → SVC_01: Privileged access pivot
-        </div>
-      ) : (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-border-app bg-panel-2 px-3 py-1.5 font-mono text-[12px] text-muted">
-          Awaiting chokepoint detection
-        </div>
-      )}
     </section>
   );
 }
@@ -627,18 +517,16 @@ function NodeBubble({
     label: string;
     icon: React.ReactNode;
     tint: string;
-    extra?: React.ReactNode;
     muted?: boolean;
   };
 }) {
   const [hover, setHover] = useState(false);
   return (
     <div
-      className={`group relative flex flex-col items-center gap-2 transition-all duration-500 hover:scale-105 ${node.muted ? "opacity-25 grayscale" : ""}`}
+      className={`group relative flex flex-col items-center gap-2 transition-all duration-500 hover:scale-105 ${node.muted ? "opacity-40 grayscale" : ""}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      {node.extra}
       <div
         className={`relative flex h-14 w-14 items-center justify-center rounded-full border ${node.tint}`}
       >
@@ -660,54 +548,23 @@ function NodeBubble({
   );
 }
 
-function Edge({ severed, fast, active }: { severed: boolean; fast: boolean; active: boolean }) {
-  return (
-    <div className="relative mx-1 h-[2px] flex-1">
-      <div
-        className={
-          !active
-            ? "h-full w-full border-t border-dashed border-border-app"
-            : severed
-              ? "edge-severed h-full w-full"
-              : fast
-                ? "edge-flow-fast h-full w-full"
-                : "edge-flow h-full w-full"
-        }
-      />
-      {active && !severed && (
-        <div
-          className="packet absolute -top-1 h-2 w-2 rounded-full bg-danger shadow-[0_0_8px_#D93A46]"
-          style={fast ? { animationDuration: "0.9s" } : undefined}
-        />
-      )}
-      <CR
-        className={`absolute -right-2 top-1/2 h-3 w-3 -translate-y-1/2 ${!active ? "text-muted/30" : severed ? "text-danger/30" : "text-danger"}`}
-      />
-      {severed && (
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[14px] font-bold text-danger/60">
-          ✕
-        </span>
-      )}
-    </div>
-  );
-}
-
 /* ---------- playbook ---------- */
 
 function PlaybookPanel({
-  simulated,
+  isRemediated,
   onApply,
   onReset,
+  onStart,
   isLoading,
+  eventCount,
   metrics,
-  canApplyRemediation,
-  replayStep,
-  phase3Mode,
 }: {
-  simulated: boolean;
+  isRemediated: boolean;
   onApply: () => void;
   onReset: () => void;
+  onStart: () => void;
   isLoading: boolean;
+  eventCount: number;
   metrics: {
     riskScore: number;
     blastRadius: number | string;
@@ -715,9 +572,6 @@ function PlaybookPanel({
     pathStatus: string;
     securityGain: number;
   };
-  canApplyRemediation: boolean;
-  replayStep: number;
-  phase3Mode?: boolean;
 }) {
   return (
     <section
@@ -738,11 +592,11 @@ function PlaybookPanel({
         <ImpactRow
           label="Risk Score"
           before={
-            isLoading ? (
+            isLoading || eventCount === 0 ? (
               <span className="text-muted">—</span>
             ) : (
               <span
-                className={`font-mono text-[13px] ${simulated ? "text-green font-bold" : "text-danger font-bold"}`}
+                className={`font-mono text-[13px] ${isRemediated ? "text-green font-bold" : "text-danger font-bold"}`}
               >
                 {metrics.riskScore}
               </span>
@@ -750,13 +604,13 @@ function PlaybookPanel({
           }
         />
         <ImpactRow
-          label="Blast Radius"
+          label="Asset Exposure Reach"
           before={
-            isLoading ? (
+            isLoading || eventCount === 0 ? (
               <span className="text-muted">—</span>
             ) : (
               <span
-                className={`font-mono text-[13px] ${simulated ? "text-green font-bold" : "text-danger font-bold"}`}
+                className={`font-mono text-[13px] ${isRemediated ? "text-green font-bold" : "text-danger font-bold"}`}
               >
                 {metrics.blastRadius}%
               </span>
@@ -768,7 +622,9 @@ function PlaybookPanel({
           before={
             isLoading ? (
               <Pill tone="teal">Loading</Pill>
-            ) : simulated ? (
+            ) : isRemediated ? (
+              <Pill tone="teal">{metrics.pathStatus}</Pill>
+            ) : eventCount === 0 ? (
               <Pill tone="teal">{metrics.pathStatus}</Pill>
             ) : (
               <Pill tone="red">{metrics.pathStatus}</Pill>
@@ -778,9 +634,9 @@ function PlaybookPanel({
         <ImpactRow
           label="Risk Level"
           before={
-            isLoading ? (
-              <Pill tone="teal">Loading</Pill>
-            ) : simulated ? (
+            isLoading || eventCount === 0 ? (
+              <Pill tone="teal">Not Calculated</Pill>
+            ) : isRemediated ? (
               <Pill tone="orange">{metrics.riskLevel}</Pill>
             ) : (
               <Pill tone="red">{metrics.riskLevel}</Pill>
@@ -789,20 +645,28 @@ function PlaybookPanel({
         />
       </div>
 
-      {simulated && (
+      {isRemediated && (
         <div className="fade-up mt-3 flex items-center justify-center gap-2 rounded-md border border-green/40 bg-green/10 py-2 text-[13px] font-bold text-green">
           +{metrics.securityGain} Security Gain
         </div>
       )}
 
-      {simulated ? (
+      {eventCount === 0 ? (
+        <button
+          onClick={onStart}
+          style={{ backgroundColor: "#248A52", color: "#F4F1FA" }}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-[13px] font-bold transition-colors hover:brightness-110"
+        >
+          <Play className="h-4 w-4 fill-current" /> Start Analysis
+        </button>
+      ) : isRemediated ? (
         <button
           onClick={onReset}
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-panel-2 py-2.5 text-[13px] font-bold text-text ring-1 ring-border-app transition-colors hover:bg-panel"
         >
-          <RotateCcw className="h-4 w-4" /> Reset Simulation
+          <RotateCcw className="h-4 w-4" /> Reset Remediation
         </button>
-      ) : canApplyRemediation ? (
+      ) : eventCount > 1 ? (
         <button
           onClick={onApply}
           style={{ backgroundColor: "#248A52", color: "#F4F1FA" }}
@@ -820,7 +684,7 @@ function PlaybookPanel({
             <Play className="h-4 w-4 fill-current" /> Apply to Attack Model
           </button>
           <p className="text-center text-[11px] text-muted">
-            Available at Step 2 (currently Step {replayStep})
+            More context required
           </p>
         </div>
       )}
@@ -839,27 +703,12 @@ function ImpactRow({ label, before }: { label: string; before: React.ReactNode }
 
 /* ---------- bottom ---------- */
 
-const MITRE = [
-  { id: "T1078", name: "Valid Accounts", tone: "orange" as const, sev: "Medium" },
-  {
-    id: "T1021.002",
-    name: "Remote Services: SMB/Windows Admin Shares",
-    tone: "red" as const,
-    sev: "High",
-  },
-  { id: "T1068", name: "Exploitation for Privilege Escalation", tone: "red" as const, sev: "High" },
-  { id: "T1003", name: "OS Credential Dumping", tone: "orange" as const, sev: "Medium" },
-];
-
 function MitrePanel({
   activeDetections,
 }: {
-  activeDetections: import("../lib/types").Detection[];
+  activeDetections: any[];
 }) {
-  const activeTechniques = new Set(activeDetections.map((d) => d.technique));
-  const visibleMitre = MITRE.filter(
-    (m) => activeTechniques.has(m.id) || activeTechniques.has(m.id.split(".")[0]),
-  );
+  const activeTechniques = Array.from(new Set(activeDetections.map((d) => d.mitreTechniqueId)));
 
   return (
     <section
@@ -872,22 +721,21 @@ function MitrePanel({
           <span className="text-[10px] font-bold tracking-[0.18em] text-muted">MITRE COVERAGE</span>
         </div>
         <span className="text-[11px] text-muted">
-          Showing {visibleMitre.length} of {MITRE.length} techniques
+          Observed Techniques
         </span>
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {visibleMitre.length > 0 ? (
-          visibleMitre.map((m) => (
+        {activeTechniques.length > 0 ? (
+          activeTechniques.map((id) => (
             <div
-              key={m.id}
+              key={id}
               className="rounded-lg border border-border-app bg-bg/50 p-3 hover:border-teal/30"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="font-mono text-[12px] font-bold text-teal">{m.id}</div>
-                  <div className="mt-1 text-[12.5px] text-text">{m.name}</div>
+                  <div className="font-mono text-[12px] font-bold text-teal">{id}</div>
                 </div>
-                <Pill tone={m.tone}>{m.sev}</Pill>
+                <Pill tone="orange">Observed</Pill>
               </div>
             </div>
           ))
@@ -897,63 +745,12 @@ function MitrePanel({
           </div>
         )}
       </div>
-      <div className="mt-3 flex justify-end gap-1">
-        <button
-          className="rounded-md border border-border-app bg-panel-2 p-1.5 hover:bg-panel"
-          disabled={visibleMitre.length === 0}
-        >
-          <ChevronLeft className="h-3.5 w-3.5 text-muted" />
-        </button>
-        <button
-          className="rounded-md border border-border-app bg-panel-2 p-1.5 hover:bg-panel"
-          disabled={visibleMitre.length === 0}
-        >
-          <CR className="h-3.5 w-3.5 text-muted" />
-        </button>
-      </div>
     </section>
   );
 }
 
-const EVIDENCE = [
-  {
-    icon: <Monitor className="h-4 w-4 text-blue" />,
-    msg: "WST_02 SMB session to SVC_01",
-    ts: "May 19, 2024 13:42:11",
-  },
-  {
-    icon: <Activity className="h-4 w-4 text-teal" />,
-    msg: "Service account SVC_01 used for remote admin",
-    ts: "May 19, 2024 13:38:07",
-  },
-  {
-    icon: <AlertOctagon className="h-4 w-4 text-danger" />,
-    msg: "DC_01 LDAP bind attempt from SRV_01",
-    ts: "May 19, 2024 13:35:02",
-  },
-];
-
-function EvidencePanel({ activeEvents }: { activeEvents: import("../lib/types").SecurityEvent[] }) {
-  const visibleEvidence = activeEvents.map((e) => ({
-    id: e.id,
-    icon:
-      e.nodeId === "SVC_01" || e.nodeId === "WST_02" ? (
-        <Monitor className="h-4 w-4 text-blue" />
-      ) : e.nodeId === "SRV_01" ? (
-        <Activity className="h-4 w-4 text-teal" />
-      ) : (
-        <AlertOctagon className="h-4 w-4 text-danger" />
-      ),
-    msg: e.message,
-    ts: new Date(e.timestamp).toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }),
-  }));
+function EvidencePanel({ activeDetections }: { activeDetections: any[] }) {
+  const visibleEvidence = activeDetections.flatMap(d => d.evidence).slice(0, 3);
 
   return (
     <section
@@ -967,25 +764,18 @@ function EvidencePanel({ activeEvents }: { activeEvents: import("../lib/types").
             RECENT EVIDENCE
           </span>
         </div>
-        {visibleEvidence.length > 0 && (
-          <a className="text-[11px] font-semibold text-teal hover:underline" href="#">
-            View all →
-          </a>
-        )}
       </div>
       <ul>
         {visibleEvidence.length > 0 ? (
-          visibleEvidence.map((e) => (
+          visibleEvidence.map((e, idx) => (
             <li
-              key={e.id}
+              key={idx}
               className="flex items-center gap-3 border-b border-border-app/60 py-3 last:border-b-0 hover:bg-panel-2/60 -mx-2 px-2 rounded-md transition-colors"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-panel-2">
-                {e.icon}
+                <AlertOctagon className="h-4 w-4 text-danger" />
               </div>
-              <div className="min-w-0 flex-1 text-[13px] text-text">{e.msg}</div>
-              <div className="font-mono text-[11px] text-muted">{e.ts}</div>
-              <CR className="h-3.5 w-3.5 text-muted" />
+              <div className="min-w-0 flex-1 text-[13px] text-text">{String(e.value || e)}</div>
             </li>
           ))
         ) : (

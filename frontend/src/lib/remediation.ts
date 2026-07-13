@@ -59,7 +59,7 @@ export function applySyntheticRemediation(
 
   detections.forEach((det) => {
     let mitigated = false;
-    
+
     if (actionId === "remediation:patch-wst-02") {
       // Mitigate LSASS dumping on WST_02
       if (det.rule.id === "AP-RULE-CREDENTIAL-001" && det.entities.assetIds.includes("WST_02")) {

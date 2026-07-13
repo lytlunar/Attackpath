@@ -1,97 +1,96 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { User, Monitor, Cog, Server, Building2, Crown, ShieldCheck, Database, Radar } from "lucide-react";
+import {
+  AlertTriangle,
+  Monitor,
+  User,
+  Server,
+  Cog,
+  Building2,
+  Crown,
+  ShieldCheck,
+} from "lucide-react";
 import { useAegisPath } from "../context/AegisPathContext";
 import { AegisPathModel } from "../data/aegisPathModel";
-import { usePhase3Scenario } from "../hooks/usePhase3Scenario";
 
 export const Route = createFileRoute("/_app/attack-graph")({
   component: AttackGraphPage,
 });
 
 const iconMap: Record<string, React.ReactNode> = {
-  User: <User className="h-5 w-5" />,
-  Monitor: <Monitor className="h-5 w-5" />,
-  Cog: <Cog className="h-5 w-5" />,
-  Server: <Server className="h-5 w-5" />,
-  Building2: <Building2 className="h-5 w-5" />,
-  Database: <Database className="h-5 w-5" />,
-  Radar: <Radar className="h-5 w-5" />
+  User: <User className="h-full w-full" />,
+  Monitor: <Monitor className="h-full w-full" />,
+  Cog: <Cog className="h-full w-full" />,
+  Server: <Server className="h-full w-full" />,
+  Building2: <Building2 className="h-full w-full" />,
 };
 
 function getNodeColor(id: string, role: string) {
-  if (role !== "critical") return "border-border-app bg-panel-2 text-muted";
-  
-  if (id === "WST_02") return "border-danger/60 bg-danger/15 text-danger";
-  if (id === "SVC_01") return "border-teal/50 bg-teal/15 text-teal";
-  if (id === "SRV_01") return "border-orange/50 bg-orange/15 text-orange";
-  if (id === "DC_01") return "border-gold/60 bg-orange/10 text-orange";
-  // USR_03
-  return "border-blue/50 bg-blue/15 text-blue";
+  if (role === "context") return "border-muted/30 text-muted";
+
+  if (id === "USR_03") return "border-blue text-blue bg-blue/10";
+  if (id === "WST_02") return "border-danger text-danger bg-danger/10";
+  if (id === "SVC_01") return "border-teal text-teal bg-teal/10";
+  if (id === "SRV_01") return "border-orange text-orange bg-orange/10";
+  if (id === "DC_01") return "border-gold text-gold bg-gold/10";
+
+  return "border-danger text-danger bg-danger/10";
 }
 
 function AttackGraphPage() {
-  const { remediationApplied: p2RemediationApplied, applyRemediation: p2ApplyRemediation, resetRemediation: p2ResetRemediation, scenarioState, isLoading, isError, isMutating, phase3Mode } = useAegisPath();
-  const { state: p3State, isPending: p3Pending, processNextEvent, resetPhase3, applyRemediation: p3ApplyRemediation, resetRemediation: p3ResetRemediation, canProcessNext } = usePhase3Scenario();
+  const {
+    canonicalResult: state,
+    canonicalSessionInput,
+    applyCanonicalRemediation,
+    resetCanonicalRemediation,
+    canonicalIsLoading: isPending,
+  } = useAegisPath();
 
   const [selectedId, setSelectedId] = useState<string>("WST_02");
 
-  const isNeutral = phase3Mode ? (p3Pending || !p3State.graph) : (isLoading || isError || !scenarioState);
+  const eventCount = canonicalSessionInput.processedEventCount;
+  const isNeutral = eventCount === 0;
+  const remediationApplied = canonicalSessionInput.remediationActionId !== null;
 
-  const remediationApplied = phase3Mode ? p3State.remediation.applied : p2RemediationApplied;
+  const activeNodes = state?.activeGraph?.nodes?.map(n => n.id) || [];
+  const activeEdges = state?.activeGraph?.edges || [];
 
-  const chokepointEdgeId = scenarioState?.chokepointEdge?.id || "";
-  const chokepointEdge = scenarioState?.edges.find(e => e.id === chokepointEdgeId);
-  const chokepointSource = phase3Mode ? "WST_02" : (chokepointEdge ? chokepointEdge.source : "");
-  const chokepointText = phase3Mode ? "WST_02 → SRV_01 (and Lateral)" : (chokepointEdge ? `${chokepointEdge.source} → ${chokepointEdge.target}` : "");
+  const selNodeAnalysis = state?.activeGraph?.nodes?.find(n => n.id === selectedId) || null;
+  const selContextNode = state?.contextGraph?.nodes?.find(n => n.id === selectedId) || null;
+  const sel = selNodeAnalysis || selContextNode;
+  const isMuted = !selNodeAnalysis && !isNeutral;
 
-  const sel = AegisPathModel.graphNodes.find(n => n.id === selectedId);
-  const selNodeAnalysis = scenarioState?.nodes.find(n => n.id === selectedId);
-
-  let isMuted = false;
-  if (!isNeutral) {
-    if (phase3Mode) {
-      isMuted = p3State.graph ? !p3State.graph.nodes.includes(selectedId) : true;
-    } else {
-      isMuted = selNodeAnalysis ? !selNodeAnalysis.reachableViaActivePath : false;
-    }
-  }
+  const chokepointSource = "WST_02";
 
   return (
     <div className="space-y-4">
-      {phase3Mode && (
-        <div className="rounded-lg border border-teal/40 bg-teal/10 p-3 flex justify-between items-center text-sm">
-          <div className="text-teal font-semibold">
-            <span className="bg-teal text-bg px-1.5 py-0.5 rounded text-[10px] mr-2">PHASE 3</span>
-            Synthetic Security Simulation
+      {/* Topology Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-border-app bg-panel p-4">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+            <span className="text-[11.5px] uppercase tracking-wider text-muted font-bold">
+              Topology View
+            </span>
+            <span className="text-[14px] font-semibold text-text">
+              {isNeutral ? "Awaiting Data" : remediationApplied ? "Simulated State" : "Live Assessment"}
+            </span>
           </div>
-          <div className="flex gap-2">
-             <button onClick={resetPhase3} className="px-3 py-1 rounded bg-panel-2 border border-border-app hover:bg-panel text-xs">Reset Demo</button>
-             <button disabled={!canProcessNext || p3Pending} onClick={processNextEvent} className="px-3 py-1 rounded bg-teal/20 border border-teal/50 hover:bg-teal/30 text-teal text-xs disabled:opacity-50">Process Next Synthetic Event</button>
+          <div className="h-8 w-[1px] bg-border-app" />
+          <div className="flex flex-col">
+            <span className="text-[11.5px] uppercase tracking-wider text-muted font-bold">
+              Path Status
+            </span>
+            <span className={`text-[14px] font-mono font-bold ${isNeutral ? "text-muted" : remediationApplied ? "text-green" : "text-danger"}`}>
+              {isNeutral ? "Neutral" : remediationApplied ? "Mitigated" : "Critical"}
+            </span>
           </div>
         </div>
-      )}
 
-      {isError && !phase3Mode && (
-        <div className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm text-danger font-semibold">
-          Error loading analysis data. {hasValidState ? "Preserving last valid graph state." : "Showing neutral topology."}
-        </div>
-      )}
-
-      {/* Status banner */}
-      <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-[12.5px] font-semibold transition-all duration-500 ${
-        isNeutral
-          ? "border-border-app bg-panel-2 text-muted"
-          : remediationApplied
-            ? "border-green/40 bg-green/8 text-green"
-            : "border-danger/40 bg-danger/8 text-danger"
-      }`}>
-        {isNeutral ? (
-          <><Cog className={`h-4 w-4 ${isError ? "" : "animate-spin"}`} /> {isError ? "Analysis unavailable" : "Loading analysis..."} · Path: {isError ? "—" : "Loading"}</>
-        ) : remediationApplied ? (
-          <><ShieldCheck className="h-4 w-4" /> {chokepointText} edge severed · Downstream nodes isolated · Path: Disrupted</>
-        ) : (
-          <><span className="h-2 w-2 rounded-full bg-danger live-dot flex-shrink-0" /> Active attack path · Chokepoint: {chokepointSource} — click to inspect</>
+        {remediationApplied && (
+          <div className="flex items-center gap-2 rounded border border-green/30 bg-green/10 px-3 py-1.5 text-[12px] font-semibold text-green">
+            <ShieldCheck className="h-4 w-4" />
+            Path Disrupted
+          </div>
         )}
       </div>
 
@@ -136,62 +135,47 @@ function AttackGraphPage() {
                 </marker>
               </defs>
 
-              {AegisPathModel.graphEdges.map((edge, i) => {
-                const A = AegisPathModel.graphNodes.find(n => n.id === edge.source);
-                const B = AegisPathModel.graphNodes.find(n => n.id === edge.target);
-                
-                if (!A || !B) return null;
+              {(state?.contextGraph?.edges || []).map((edge, i) => {
+                const A = state.contextGraph.nodes.find(n => n.id === edge.source);
+                const B = state.contextGraph.nodes.find(n => n.id === edge.target);
+
+                // fallback to static positions for layout
+                const staticA = AegisPathModel.graphNodes.find(n => n.id === edge.source);
+                const staticB = AegisPathModel.graphNodes.find(n => n.id === edge.target);
+
+                if (!A || !B || !staticA || !staticB) return null;
 
                 const edgeId = edge.id;
-                
-                let isContext = true;
-                let isChokepoint = false;
-                let isSevered = false;
-                let isDownstream = false;
 
-                if (!isNeutral) {
-                  if (phase3Mode) {
-                     const p3Edge = p3State.graph?.edges.find(e => e.id === edgeId);
-                     isContext = !p3Edge; // Not a detection-supported edge
-                     isSevered = false; // We just remove the edge if severed, or keep it muted. Wait, Phase 3 remediation removes the edge from the graph entirely.
-                     if (!isContext && remediationApplied) {
-                        // If it's WST_02 -> SRV_01, we want to visually show it severed
-                        if (edge.source === "WST_02" && edge.target === "SRV_01") {
-                           isSevered = true;
-                           isContext = false;
-                        }
-                     }
-                  } else {
-                    const analysisEdge = scenarioState?.edges.find(e => e.id === edgeId);
-                    isContext = analysisEdge ? analysisEdge.role === "context" : true;
-                    isChokepoint = analysisEdge ? analysisEdge.isChokepoint : false;
-                    isSevered = analysisEdge ? analysisEdge.severed : false;
-                    const sourceNodeAnalysis = scenarioState?.nodes.find(n => n.id === edge.source);
-                    isDownstream = sourceNodeAnalysis ? !sourceNodeAnalysis.reachableViaActivePath : false;
-                  }
-                }
-                
-                const isDimmedCritical = isSevered || isDownstream;
+                const activeEdge = activeEdges.find(e => e.id === edgeId || (e.source === edge.source && e.target === edge.target));
+                const isContext = !activeEdge;
+
+                // Instead of manually calculating severed logic, canonical API simply omits it from activeEdges.
+                // We show severed purely visually if it was the remediation target but is now missing, though
+                // canonical doesn't explicitly flag "severed" in activeGraph. It just drops it.
+                // To keep the visual 'X', we can deduce it:
+                const isSevered = remediationApplied && edge.source === "WST_02" && edge.target === "SVC_01";
+                const isDimmedCritical = isSevered;
 
                 let strokeColor = isNeutral ? "#88888855" : (isContext ? "#88888833" : (isDimmedCritical ? "#D93A4660" : "#ef5b6c"));
                 let markerUrl = isNeutral ? "none" : (isContext ? "none" : (isDimmedCritical ? "url(#arrow-severed)" : "url(#arrow-active)"));
 
                 // Calculate exact start/end coordinates at node boundaries
-                const dx = B.x - A.x;
-                const dy = B.y - A.y;
+                const dx = staticB.x - staticA.x;
+                const dy = staticB.y - staticA.y;
                 const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-                
-                const isContextNodeA = A.role === "context";
-                const isContextNodeB = B.role === "context";
+
+                const isContextNodeA = isContext && !activeNodes.includes(A.id);
+                const isContextNodeB = isContext && !activeNodes.includes(B.id);
                 const radiusA = isContextNodeA ? 24 : 32;
                 const radiusB = isContextNodeB ? 24 : 32;
-                
-                const startX = A.x + (dx / distance) * radiusA;
-                const startY = A.y + (dy / distance) * radiusA;
-                
+
+                const startX = staticA.x + (dx / distance) * radiusA;
+                const startY = staticA.y + (dy / distance) * radiusA;
+
                 const paddingEnd = isContext || isNeutral ? 0 : 6;
-                const endX = B.x - (dx / distance) * (radiusB + paddingEnd);
-                const endY = B.y - (dy / distance) * (radiusB + paddingEnd);
+                const endX = staticB.x - (dx / distance) * (radiusB + paddingEnd);
+                const endY = staticB.y - (dy / distance) * (radiusB + paddingEnd);
 
                 return (
                   <g key={i}>
@@ -206,13 +190,13 @@ function AttackGraphPage() {
                         <animate
                           attributeName="stroke-dashoffset"
                           from="0" to="-20"
-                          dur={isChokepoint ? "0.5s" : "0.8s"}
+                          dur={"0.8s"}
                           repeatCount="indefinite"
                         />
                       )}
                     </line>
                     {isSevered && (
-                      <g transform={`translate(${(A.x + B.x) / 2}, ${(A.y + B.y) / 2})`}>
+                      <g transform={`translate(${(staticA.x + staticB.x) / 2}, ${(staticA.y + staticB.y) / 2})`}>
                         <circle r="11" fill="#0f111a" stroke="#ef5b6c" strokeWidth="1.5" />
                         <text
                           y="4"
@@ -228,61 +212,50 @@ function AttackGraphPage() {
               })}
             </svg>
 
-            {AegisPathModel.graphNodes.map((n) => {
-              let isReachable = true;
-              let isContext = true;
-              let isCritical = false;
-              let isChokepointNode = false;
+            {(state?.contextGraph?.nodes || []).map((n) => {
+              const staticN = AegisPathModel.graphNodes.find(sn => sn.id === n.id);
+              if (!staticN) return null;
 
-              if (!isNeutral) {
-                if (phase3Mode) {
-                  const p3NodeHasEdges = p3State.graph?.edges.some(e => e.source === n.id || e.target === n.id);
-                  isReachable = p3NodeHasEdges ? true : false;
-                  isContext = !p3State.graph?.nodes.includes(n.id);
-                  isCritical = !isContext;
-                  isChokepointNode = n.id === "WST_02";
-                } else {
-                  const analysisNode = scenarioState?.nodes.find(an => an.id === n.id);
-                  isReachable = analysisNode ? analysisNode.reachableViaActivePath : true;
-                  isContext = analysisNode ? analysisNode.role === "context" : true;
-                  isCritical = analysisNode ? analysisNode.role === "critical" : false;
-                  isChokepointNode = analysisNode ? (n.id === chokepointSource) : false;
-                }
-              }
+              const isCritical = activeNodes.includes(n.id) && !isNeutral;
+              const isContext = !isCritical;
 
-              const nodeIsMutedCritical = !isReachable;
+              // We mute nodes that were critical but lost reachability after remediation.
+              // We can infer this: if it's in contextGraph but not activeGraph, and it's not neutral.
+              const nodeIsMutedCritical = isContext && !isNeutral && remediationApplied && ["SVC_01", "SRV_01", "DC_01"].includes(n.id);
+              const isChokepointNode = n.id === chokepointSource;
+
               const offset = isContext ? 24 : 32;
 
               return (
                 <button
                   key={n.id}
                   onClick={() => setSelectedId(n.id)}
-                  className={`absolute flex flex-col items-center transition-all duration-500 hover:scale-110 
+                  className={`absolute flex flex-col items-center transition-all duration-500 hover:scale-110
                     ${nodeIsMutedCritical ? "opacity-40 grayscale" : ""}
                     ${isContext ? "opacity-60 hover:opacity-100" : ""}
                   `}
-                  style={{ left: n.x - offset, top: n.y - offset, zIndex: isCritical ? 10 : 1 }}
+                  style={{ left: staticN.x - offset, top: staticN.y - offset, zIndex: isCritical ? 10 : 1 }}
                 >
                   {n.id === "DC_01" && <Crown className={`pulse-gold absolute -top-5 h-5 w-5 text-gold ${isNeutral ? "opacity-50" : ""}`} />}
-                  
+
                   {isChokepointNode && !remediationApplied && !isNeutral && (
                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-danger px-1.5 py-0.5 text-[9px] font-black tracking-wider text-white shadow shadow-danger/50">
                       CHOKEPOINT
                     </div>
                   )}
 
-                  <div className={`relative flex items-center justify-center rounded-full border ${getNodeColor(n.id, isCritical ? "critical" : "context")} 
-                    ${isChokepointNode && !remediationApplied ? "pulse-glow-red" : ""} 
+                  <div className={`relative flex items-center justify-center rounded-full border ${getNodeColor(n.id, isCritical ? "critical" : "context")}
+                    ${isChokepointNode && !remediationApplied ? "pulse-glow-red" : ""}
                     ${selectedId === n.id ? "ring-2 ring-teal ring-offset-2 ring-offset-bg" : ""}
                     ${isContext ? "h-12 w-12 text-muted" : "h-16 w-16"}
                   `}>
                     <div className={isContext ? "scale-90" : "scale-110"}>
-                      {iconMap[n.iconType] || <Monitor className="h-5 w-5" />}
+                      {iconMap[staticN.iconType] || <Monitor className="h-5 w-5" />}
                     </div>
                   </div>
-                  
+
                   <div className={`mt-1.5 font-mono font-bold ${isContext ? "text-[10px] text-muted" : "text-[12px] text-text"}`}>
-                    {n.label}
+                    {staticN.label}
                   </div>
                 </button>
               );
@@ -306,12 +279,15 @@ function AttackGraphPage() {
           {sel && (
             <>
               <div className={`mt-2 flex items-center gap-3 transition-opacity duration-500 ${isMuted ? "opacity-40" : ""}`}>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-full border ${getNodeColor(sel.id, isNeutral ? "context" : (selNodeAnalysis ? selNodeAnalysis.role : "context"))}`}>
-                  {iconMap[sel.iconType]}
+                <div className={`flex h-12 w-12 items-center justify-center rounded-full border ${getNodeColor(sel.id, isNeutral ? "context" : (selNodeAnalysis ? "critical" : "context"))}`}>
+                  {(() => {
+                    const sn = AegisPathModel.graphNodes.find(n => n.id === sel.id);
+                    return iconMap[sn?.iconType || "Monitor"];
+                  })()}
                 </div>
                 <div>
                   <div className="font-mono text-[14px] font-bold text-text">{sel.id}</div>
-                  <div className="text-[11.5px] text-muted">{sel.type} · {isNeutral ? "—" : (selNodeAnalysis ? selNodeAnalysis.status : sel.status)}</div>
+                  <div className="text-[11.5px] text-muted">{sel.type} · {isNeutral ? "—" : (selNodeAnalysis ? "Active" : "Context")}</div>
                 </div>
               </div>
 
@@ -324,21 +300,18 @@ function AttackGraphPage() {
                   <div className="mt-4 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-[11.5px] font-semibold text-danger">
                     This node is the chokepoint. Remediating here breaks the primary attack path.
                   </div>
-                  
+
                   {/* Remediation CTA */}
                   <div className="mt-6 rounded-lg border border-border-app bg-panel-2 p-4 text-center">
-                    <button 
-                      onClick={() => phase3Mode ? p3ApplyRemediation("remediation:patch-wst-02") : p2ApplyRemediation()}
-                      disabled={isMutating || p3Pending}
+                    <button
+                      onClick={() => applyCanonicalRemediation("patch_wst_02")}
+                      disabled={isPending}
                       className="w-full flex items-center justify-center gap-2 rounded border border-danger/50 bg-danger/20 px-4 py-2.5 text-[12px] font-bold text-danger transition-colors hover:bg-danger/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isMutating || p3Pending ? "Applying..." : "Apply to Attack Model"}
+                      {isPending ? "Applying..." : "Apply to Attack Model"}
                     </button>
                     <div className="mt-2.5 text-[10.5px] leading-relaxed text-muted">
                       Sever the chokepoint edge to isolate downstream nodes and disrupt the attack path.
-                      <div className="mt-1 font-semibold tracking-wider text-danger/80">
-                        {phase3Mode ? "AFFECTS DIGITAL SYNTHETIC MODEL" : "AFFECTS GLOBAL STATE"}
-                      </div>
                     </div>
                   </div>
                 </>
@@ -350,12 +323,12 @@ function AttackGraphPage() {
                     <ShieldCheck className="mb-1 h-4 w-4 inline-block" /> {sel.id} remediated. Edge severed. Downstream nodes isolated.
                   </div>
                   <div className="mt-6 rounded-lg border border-border-app bg-panel-2 p-4 text-center">
-                    <button 
-                      onClick={() => phase3Mode ? p3ResetRemediation() : p2ResetRemediation()}
-                      disabled={isMutating || p3Pending}
+                    <button
+                      onClick={() => resetCanonicalRemediation()}
+                      disabled={isPending}
                       className="w-full flex items-center justify-center gap-2 rounded border border-border-app bg-bg px-4 py-2.5 text-[12px] font-bold text-text transition-colors hover:bg-panel disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isMutating || p3Pending ? "Resetting..." : "Reset Simulation"}
+                      {isPending ? "Resetting..." : "Reset Simulation"}
                     </button>
                   </div>
                 </>

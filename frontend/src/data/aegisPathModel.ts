@@ -77,7 +77,7 @@ export const AegisPathModel = {
       description: "Crown jewel. Full domain compromise if reached. Protect via tiered admin model. Target of Golden Ticket and DCSync attacks.",
       role: "critical", x: 520, y: 70, iconType: "Building2"
     },
-    
+
     // Level 1 - Servers / Data assets
     {
       id: "SRV_01", label: "SRV_01", type: "Application Server", status: "at_risk",
@@ -158,7 +158,7 @@ export const AegisPathModel = {
     { id: "e2", source: "WST_02", target: "SVC_01", role: "chokepoint", description: "Exposed credentials on WST_02 allow access to SVC_01." },
     { id: "e3", source: "SVC_01", target: "SRV_01", role: "critical", description: "Exploited service account enables lateral movement to SRV_01." },
     { id: "e4", source: "SRV_01", target: "DC_01", role: "critical", description: "Compromised server creates a path toward the domain controller." },
-    
+
     // CONTEXT EDGES (Relationships within and between layers)
     { id: "e5", source: "WST_01", target: "USR_01", role: "context", description: "Normal user workstation session." },
     { id: "e6", source: "WST_01", target: "USR_02", role: "context", description: "Normal user workstation session." },

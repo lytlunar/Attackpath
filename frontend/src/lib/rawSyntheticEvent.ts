@@ -26,6 +26,12 @@ export const rawSyntheticEventSchema = z.object({
     privileged: z.boolean().optional(),
   }).optional(),
 
+  targetIdentity: z.object({
+    id: z.string().optional(),
+    accountType: z.enum(["human", "service", "machine"]).optional(),
+    privileged: z.boolean().optional(),
+  }).optional(),
+
   sourceAsset: z.object({
     id: z.string().optional(),
     hostname: z.string().optional(),

@@ -148,7 +148,17 @@ function AttackGraphPage() {
                 const edgeId = edge.id;
 
                 const activeEdge = activeEdges.find(e => e.id === edgeId || (e.source === edge.source && e.target === edge.target));
-                const isContext = !activeEdge;
+                let isContext = !activeEdge;
+
+                // Explicitly demote downstream edges to historical/context if remediation is applied
+                const isHistorical = remediationApplied && (
+                  (edge.source === "SVC_01" && edge.target === "SRV_01") ||
+                  (edge.source === "SRV_01" && edge.target === "DC_01")
+                );
+
+                if (isHistorical) {
+                  isContext = true;
+                }
 
                 // Instead of manually calculating severed logic, canonical API simply omits it from activeEdges.
                 // We show severed purely visually if it was the remediation target but is now missing, though
@@ -157,8 +167,8 @@ function AttackGraphPage() {
                 const isSevered = remediationApplied && edge.source === "WST_02" && edge.target === "SVC_01";
                 const isDimmedCritical = isSevered;
 
-                let strokeColor = isNeutral ? "#88888855" : (isContext ? "#88888833" : (isDimmedCritical ? "#D93A4660" : "#ef5b6c"));
-                let markerUrl = isNeutral ? "none" : (isContext ? "none" : (isDimmedCritical ? "url(#arrow-severed)" : "url(#arrow-active)"));
+                let strokeColor = isNeutral ? "#88888855" : (isHistorical ? "#88888855" : (isContext ? "#88888833" : (isDimmedCritical ? "#D93A4660" : "#ef5b6c")));
+                let markerUrl = isNeutral ? "none" : (isHistorical ? "url(#arrow-context)" : (isContext ? "none" : (isDimmedCritical ? "url(#arrow-severed)" : "url(#arrow-active)")));
 
                 // Calculate exact start/end coordinates at node boundaries
                 const dx = staticB.x - staticA.x;
@@ -216,12 +226,18 @@ function AttackGraphPage() {
               const staticN = AegisPathModel.graphNodes.find(sn => sn.id === n.id);
               if (!staticN) return null;
 
-              const isCritical = activeNodes.includes(n.id) && !isNeutral;
+              let isCritical = activeNodes.includes(n.id) && !isNeutral;
+              
+              // Force downstream nodes to be demoted if remediation is applied
+              const isHistoricalNode = remediationApplied && ["SVC_01", "SRV_01", "DC_01"].includes(n.id);
+              if (isHistoricalNode) {
+                isCritical = false;
+              }
+
               const isContext = !isCritical;
 
               // We mute nodes that were critical but lost reachability after remediation.
-              // We can infer this: if it's in contextGraph but not activeGraph, and it's not neutral.
-              const nodeIsMutedCritical = isContext && !isNeutral && remediationApplied && ["SVC_01", "SRV_01", "DC_01"].includes(n.id);
+              const nodeIsMutedCritical = isHistoricalNode && !isNeutral;
               const isChokepointNode = n.id === chokepointSource;
 
               const offset = isContext ? 24 : 32;
@@ -267,6 +283,7 @@ function AttackGraphPage() {
           <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted">
             <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-danger inline-block" /> Active edge</span>
             <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-danger/30 inline-block" style={{ borderTop: "2px dashed #D93A4640" }} /> Severed edge</span>
+            <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-muted/40 inline-block" style={{ borderTop: "2px dashed #88888855" }} /> Historical edge</span>
             <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-muted/30 inline-block" style={{ borderTop: "2px dashed #88888833" }} /> Context edge</span>
             <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-danger/20 border border-danger/50 inline-block" /> Chokepoint node</span>
             <span className="flex items-center gap-1.5"><span className="opacity-25">●</span> Muted / Context</span>

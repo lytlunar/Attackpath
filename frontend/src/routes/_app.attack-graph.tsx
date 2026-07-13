@@ -167,7 +167,7 @@ function AttackGraphPage() {
                 const isSevered = remediationApplied && edge.source === "WST_02" && edge.target === "SVC_01";
                 const isDimmedCritical = isSevered;
 
-                let strokeColor = isNeutral ? "#88888855" : (isHistorical ? "#88888855" : (isContext ? "#88888833" : (isDimmedCritical ? "#D93A4660" : "#ef5b6c")));
+                let strokeColor = isNeutral ? "#88888855" : (isHistorical ? "#88888888" : (isContext ? "#88888833" : (isDimmedCritical ? "#D93A4660" : "#ef5b6c")));
                 let markerUrl = isNeutral ? "none" : (isHistorical ? "url(#arrow-context)" : (isContext ? "none" : (isDimmedCritical ? "url(#arrow-severed)" : "url(#arrow-active)")));
 
                 // Calculate exact start/end coordinates at node boundaries
@@ -193,7 +193,7 @@ function AttackGraphPage() {
                       x1={startX} y1={startY} x2={endX} y2={endY}
                       stroke={strokeColor}
                       strokeWidth={isSevered ? 2.5 : (isContext || isNeutral ? 1.5 : 2)}
-                      strokeDasharray={isSevered ? "6 6" : "6 4"}
+                      strokeDasharray={isSevered ? "6 6" : (isHistorical ? "4 4" : "6 4")}
                       markerEnd={markerUrl}
                     >
                       {!isDimmedCritical && !isContext && !isNeutral && (
@@ -280,10 +280,10 @@ function AttackGraphPage() {
           </div>
 
           {/* Legend */}
-          <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted">
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pb-3 overflow-visible text-[11px] text-muted">
             <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-danger inline-block" /> Active edge</span>
             <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-danger/30 inline-block" style={{ borderTop: "2px dashed #D93A4640" }} /> Severed edge</span>
-            <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-muted/40 inline-block" style={{ borderTop: "2px dashed #88888855" }} /> Historical edge</span>
+            <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-transparent inline-block" style={{ borderTop: "1.5px dashed #88888888" }} /> Historical edge</span>
             <span className="flex items-center gap-1.5"><span className="h-[2px] w-6 bg-muted/30 inline-block" style={{ borderTop: "2px dashed #88888833" }} /> Context edge</span>
             <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-danger/20 border border-danger/50 inline-block" /> Chokepoint node</span>
             <span className="flex items-center gap-1.5"><span className="opacity-25">●</span> Muted / Context</span>
